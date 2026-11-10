@@ -1,0 +1,28 @@
+﻿[build]
+  command = "node tools/build-demo.js"
+  publish = "demo-dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# 静态演示版：所有页面由 demo-dist 提供，/api/* 由前端垫片模拟
+[[redirects]]
+  from = "/login"
+  to = "/login.html"
+  status = 200
+
+[[redirects]]
+  from = "/dashboard"
+  to = "/dashboard.html"
+  status = 200
+
+[[redirects]]
+  from = "/"
+  to = "/login.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"

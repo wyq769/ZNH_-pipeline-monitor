@@ -11,3 +11,5 @@ config.local.json
 .DS_Store
 Thumbs.db
 config.json
+demo-dist/
+demo-dist.zip
