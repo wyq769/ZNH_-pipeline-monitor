@@ -1,0 +1,22 @@
+{
+  "port": 8787,
+  "host": "127.0.0.1",
+  "mysql": {
+    "host": "127.0.0.1",
+    "port": 3306,
+    "user": "pipe",
+    "password": "",
+    "database": "pipeline_monitor",
+    "connectionLimit": 10
+  },
+  "sessionTtlH": 8,
+  "devLogin": true,
+  "forcePwdChange": false,
+  "brand": {
+    "project": "管道智能化检测系统"
+  },
+  "db": {
+    "file": "data/app.db",
+    "driver": "mysql"
+  }
+}

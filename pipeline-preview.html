@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>管道智能化检测系统</title>
+<style>
+  :root{
+    --bg:#05070a;
+    --ink:#e9eef6;
+    --dim:#8c98ab;
+    --mute:#5a6577;
+    --line:rgba(255,255,255,.085);
+    --line-2:rgba(255,255,255,.16);
+    --card:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.018));
+    --ok:#3ddc97;
+    --bad:#ff5c7a;
+    --warm:#ffb454;
+    --cool:#5ec8ff;
+    --heat:#ff8a3d;
+    --acc:#dbe6f5;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono","Cascadia Mono",Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:
+      radial-gradient(900px 520px at 8% -12%,rgba(94,200,255,.07),transparent 60%),
+      radial-gradient(820px 460px at 96% -6%,rgba(120,110,255,.06),transparent 58%),
+      radial-gradient(1200px 700px at 50% 120%,rgba(61,220,151,.045),transparent 60%),
+      var(--bg);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    font-feature-settings:"tnum" 1,"cv01" 1;
+    padding:0 0 40px;
+  }
+  body::after{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:9998;opacity:.028;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  ::selection{background:rgba(94,200,255,.25)}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.09);border-radius:9px;border:2px solid transparent;background-clip:padding-box}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.16);background-clip:padding-box}
+
+  .shell{max-width:1560px;margin:0 auto;padding:0 26px}
+  .topline{height:1px;background:linear-gradient(90deg,transparent,rgba(94,200,255,.5),rgba(120,110,255,.45),transparent);opacity:.7}
+
+  /* ---------- top bar ---------- */
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 0 22px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:13px}
+  .mark{
+    width:38px;height:38px;border-radius:11px;display:grid;place-items:center;color:#cfe0f5;
+    border:1px solid var(--line-2);
+    background:linear-gradient(160deg,#161c26,#0a0e14 70%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.09),0 10px 24px -14px #000,0 0 0 1px rgba(0,0,0,.4);
+  }
+  .mark svg{width:20px;height:20px}
+  .brand h1{font-size:16px;font-weight:600;letter-spacing:.005em;display:flex;align-items:center;gap:9px}
+  .brand h1 .ver{
+    font-size:10px;font-weight:500;letter-spacing:.1em;color:#93a3ba;
+    border:1px solid var(--line);border-radius:5px;padding:1.5px 6px;background:rgba(255,255,255,.035);
+  }
+  .brand p{font-size:11.5px;color:var(--mute);margin-top:4px;letter-spacing:.04em}
+  .actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .live{
+    display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px;border-radius:9px;
+    border:1px solid var(--line);background:rgba(255,255,255,.022);
+    font-size:12px;color:var(--dim);letter-spacing:.02em;
+  }
+  .live .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 rgba(61,220,151,.5);animation:ping 2.2s infinite}
+  .live.paused .dot{background:var(--warm);animation:none;box-shadow:0 0 8px rgba(255,180,84,.6)}
+  .live .ts{font-family:var(--mono);font-size:11px;color:var(--mute);letter-spacing:.02em}
+  .live .sep{width:1px;height:12px;background:var(--line-2)}
+  @keyframes ping{0%{box-shadow:0 0 0 0 rgba(61,220,151,.45)}70%{box-shadow:0 0 0 6px rgba(61,220,151,0)}100%{box-shadow:0 0 0 0 rgba(61,220,151,0)}}
+  .btn{
+    display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:9px;
+    border:1px solid var(--line);cursor:pointer;font-size:12.5px;font-weight:500;letter-spacing:.01em;
+    color:var(--ink);background:linear-gradient(180deg,rgba(255,255,255,.065),rgba(255,255,255,.02));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 6px 16px -12px #000;
+    transition:background .16s,border-color .16s,transform .12s,color .16s;
+    font-family:inherit;
+  }
+  .btn svg{width:14px;height:14px;opacity:.85}
+  .btn:hover{border-color:var(--line-2);background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.035))}
+  .btn:active{transform:translateY(1px)}
+  .btn.primary{background:linear-gradient(180deg,#f2f6fb,#c9d5e5);border-color:rgba(255,255,255,.7);color:#080b10;font-weight:600}
+  .btn.primary svg{opacity:.7}
+  .btn.primary:hover{background:linear-gradient(180deg,#fff,#dbe4f0)}
+
+  /* ---------- stat cards ---------- */
+  .stats{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:12px}
+  .stat{
+    position:relative;border-radius:14px;border:1px solid var(--line);background:var(--card);
+    padding:14px 15px 12px;overflow:hidden;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 20px 40px -30px #000;
+    transition:border-color .2s,transform .2s;
+  }
+  .stat::before{content:"";position:absolute;left:15px;right:15px;top:0;height:1px;background:linear-gradient(90deg,transparent,var(--c,#8b93a7),transparent);opacity:.55}
+  .stat:hover{border-color:var(--line-2);transform:translateY(-1px)}
+  .s-label{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--dim);letter-spacing:.09em;font-weight:500}
+  .s-label svg{width:13px;height:13px;color:var(--c,#8b93a7);opacity:.95}
+  .s-value{font-size:27px;font-weight:600;letter-spacing:-.02em;margin-top:9px;line-height:1;color:#f2f6fc}
+  .s-value small{font-size:12px;font-weight:500;color:var(--mute);margin-left:3px;letter-spacing:0}
+  .s-foot{margin-top:9px;font-size:10.5px;color:var(--mute);letter-spacing:.02em;display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .s-foot b{font-weight:600;color:var(--dim)}
+  .spark{display:block;width:100%;height:26px;margin-top:6px;opacity:.95}
+  .ratio{display:flex;gap:2px;height:3px;border-radius:3px;overflow:hidden;margin-top:8px;background:rgba(255,255,255,.06)}
+  .ratio i{display:block;height:100%;border-radius:3px;transition:width .6s cubic-bezier(.2,.7,.3,1)}
+
+  /* ---------- panels ---------- */
+  .grid{display:grid;grid-template-columns:1.55fr 1fr;gap:12px;align-items:stretch;margin-bottom:12px}
+  .panel{
+    border-radius:16px;border:1px solid var(--line);background:var(--card);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 24px 50px -34px #000;
+    padding:15px 17px 14px;position:relative;
+  }
+  .p-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px;flex-wrap:wrap}
+  .p-title{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;letter-spacing:.06em;color:#dbe4f0}
+  .p-title svg{width:14px;height:14px;color:#7f8ea6}
+  .p-meta{font-size:11px;color:var(--mute);letter-spacing:.03em;font-family:var(--mono)}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.06em;
+        padding:3.5px 10px;border-radius:999px;border:1px solid transparent}
+  .chip i{width:5px;height:5px;border-radius:50%;background:currentColor}
+  .chip.ok{color:var(--ok);background:rgba(61,220,151,.09);border-color:rgba(61,220,151,.22)}
+  .chip.bad{color:var(--bad);background:rgba(255,92,122,.09);border-color:rgba(255,92,122,.24)}
+
+  /* ---------- network ---------- */
+  .net-panel{display:flex;flex-direction:column;padding-bottom:12px}
+  .net-body{flex:1;display:flex;align-items:center;justify-content:center;min-height:0;position:relative;border-radius:12px;
+            background:radial-gradient(ellipse 62% 58% at 50% 46%,rgba(255,255,255,.022),transparent 72%)}
+  #net{width:100%;height:auto;display:block;overflow:visible;position:relative;z-index:1}
+  .legend{display:flex;align-items:center;gap:16px;margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.05);font-size:11px;color:var(--mute);letter-spacing:.03em}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:7px;height:7px;border-radius:50%;display:inline-block;box-sizing:border-box}
+  .legend i.n{background:rgba(61,220,151,.18);border:1.5px solid var(--ok)}
+  .legend i.a{background:rgba(255,92,122,.3);border:1.5px solid var(--bad)}
+  .legend i.s{border:1.5px solid rgba(255,255,255,.8);background:transparent}
+  .legend .sp{margin-left:auto;color:#48525f}
+
+  .pipe-base{stroke:rgba(150,182,218,.22);stroke-width:11;stroke-linecap:round}
+  .pipe-core{stroke:#05080d;stroke-width:7.2;stroke-linecap:round}
+  .pipe-flow{stroke:rgba(126,216,255,.5);stroke-width:1.25;stroke-linecap:round;stroke-dasharray:6 15;animation:flow 2.8s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-42}}
+  .seg-label{fill:#465062;font-size:8.6px;font-weight:500;letter-spacing:.03em;font-family:var(--mono)}
+  .nlabel{fill:#8b97a8;font-size:9.6px;font-weight:600;letter-spacing:.04em;font-family:var(--mono);pointer-events:none}
+  .nlabel.abn{fill:#ff95a8;font-weight:700}
+  .endlabel{fill:#49525f;font-size:9.5px;font-weight:600;letter-spacing:.2em}
+  .node{cursor:pointer;transition:filter .18s}
+  .node:hover{filter:brightness(1.55)}
+  .halo{fill:rgba(255,255,255,.055)}
+  .node.abnormal .halo{fill:rgba(255,92,122,.2);animation:pulse 2.4s ease-out infinite;transform-box:fill-box;transform-origin:center}
+  @keyframes pulse{0%{transform:scale(1);opacity:.95}65%{transform:scale(2.1);opacity:0}100%{transform:scale(2.1);opacity:0}}
+  .nring{fill:#06090d;stroke:var(--ok);stroke-width:1.9;filter:url(#glow)}
+  .node.abnormal .nring{fill:#06090d;stroke:var(--bad)}
+  .node:hover .nring{stroke-width:2.6}
+  .ndot{fill:var(--ok)}
+  .node.abnormal .ndot{fill:var(--bad)}
+  .abnglow{fill:var(--bad);opacity:.13;filter:blur(7px)}
+  .selglow{fill:var(--cool);opacity:.13;filter:blur(6px)}
+  .selring{fill:none;stroke:rgba(255,255,255,.85);stroke-width:1.2}
+
+  /* ---------- detail ---------- */
+  .detail-panel{display:flex;flex-direction:column}
+  .node-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding-bottom:13px;border-bottom:1px solid rgba(255,255,255,.055)}
+  .nh-id{font-size:26px;font-weight:600;letter-spacing:-.01em;line-height:1;font-family:var(--mono)}
+  .nh-meta{display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:10.5px;color:var(--mute);margin-top:8px;font-family:var(--mono);letter-spacing:.02em}
+  .nh-meta em{font-style:normal;color:#3c4553}
+  .metrics{padding:13px 0 4px;display:grid;gap:13px}
+  .metric .m-top{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:7px}
+  .m-label{font-size:11px;color:var(--dim);letter-spacing:.09em;font-weight:500}
+  .m-val{font-size:19px;font-weight:600;letter-spacing:-.01em;color:#eef3fa;font-variant-numeric:tabular-nums}
+  .m-val i{font-style:normal;font-size:11px;font-weight:500;color:var(--mute);margin-left:3px;letter-spacing:.02em}
+  .meter{height:5px;border-radius:5px;background:rgba(255,255,255,.05);position:relative;
+         box-shadow:inset 0 1px 0 rgba(0,0,0,.55),inset 0 -1px 0 rgba(255,255,255,.03)}
+  .meter .fill{position:absolute;inset:0 auto 0 0;border-radius:5px;transition:width .55s cubic-bezier(.2,.7,.3,1),background .3s;
+               box-shadow:0 0 12px -2px rgba(255,255,255,.25)}
+  .meter .tick{position:absolute;top:-3px;height:11px;width:1px;background:rgba(255,255,255,.42)}
+  .m-foot{display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--mute);letter-spacing:.03em;font-family:var(--mono)}
+  .charts{padding-top:6px;display:flex;flex-direction:column;flex:1;min-height:0}
+  .chart-block{padding-top:12px;margin-top:12px;border-top:1px solid rgba(255,255,255,.05);display:flex;flex-direction:column;flex:1;min-height:0}
+  .chart-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+  .chart-name{font-size:10.5px;color:var(--dim);letter-spacing:.08em;font-weight:500}
+  .chart-name b{color:#93a2b8;font-family:var(--mono);font-weight:500;margin-left:6px;letter-spacing:0}
+  .chart-th{font-size:10px;color:var(--mute);font-family:var(--mono);letter-spacing:.03em}
+  canvas.chart{display:block;width:100%;flex:1 1 0;min-height:62px}
+
+  /* ---------- table ---------- */
+  .tbl-note{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin:-4px 0 10px;font-size:10px;
+    color:#5f6a7a;letter-spacing:.03em;font-family:var(--mono)}
+  .tbl-note span{display:inline-flex;align-items:center;gap:6px}
+  .tbl-note em{font-style:normal;color:#7d8a9c;letter-spacing:.08em}
+  .tbl-wrap{border:1px solid var(--line);border-radius:11px;overflow:auto;max-height:318px;background:rgba(0,0,0,.16)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  thead th{
+    position:sticky;top:0;z-index:2;text-align:left;padding:9px 14px;
+    font-size:10px;font-weight:600;letter-spacing:.1em;color:#6d798d;
+    background:#0a0e14;border-bottom:1px solid var(--line);white-space:nowrap;
+  }
+  thead th.num{text-align:right}
+  tbody td{padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.04);white-space:nowrap;color:#c6d0dd}
+  tbody td.num{text-align:right;font-variant-numeric:tabular-nums}
+  tbody tr{cursor:pointer;transition:background .12s}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover td{background:rgba(255,255,255,.028)}
+  tbody tr.sel td{background:rgba(94,200,255,.055)}
+  tbody tr.sel td:first-child{box-shadow:inset 2px 0 0 rgba(94,200,255,.85)}
+  tbody tr.abn td:first-child{box-shadow:inset 2px 0 0 rgba(255,92,122,.65)}
+  .mono{font-family:var(--mono);font-size:11.5px;letter-spacing:.01em}
+  .mono.strong{color:#f0f5fb;font-weight:600}
+  .st{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;letter-spacing:.03em}
+  .st i{width:5px;height:5px;border-radius:50%}
+  .st.ok{color:#79d9ad}.st.ok i{background:var(--ok);box-shadow:0 0 7px rgba(61,220,151,.65)}
+  .st.bad{color:#ff8fa3}.st.bad i{background:var(--bad);box-shadow:0 0 7px rgba(255,92,122,.7)}
+
+  .foot{margin-top:22px;padding-top:14px;border-top:1px solid rgba(255,255,255,.045);
+        display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+        font-size:10.5px;color:#4d5867;letter-spacing:.05em}
+
+  /* ---------- tooltip ---------- */
+  #tip{
+    position:fixed;z-index:999;pointer-events:none;opacity:0;transform:translate(-50%,-118%) scale(.97);
+    transition:opacity .13s,transform .13s;
+    background:rgba(12,16,22,.94);border:1px solid rgba(255,255,255,.13);border-radius:10px;
+    padding:9px 11px;min-width:132px;
+    box-shadow:0 18px 40px -18px #000,inset 0 1px 0 rgba(255,255,255,.07);
+    backdrop-filter:blur(8px);
+  }
+  #tip.on{opacity:1;transform:translate(-50%,-124%) scale(1)}
+  #tip .t-id{font-family:var(--mono);font-size:11px;font-weight:600;color:#e9eef6;letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+  #tip .t-id i{width:5px;height:5px;border-radius:50%;display:inline-block}
+  #tip .t-row{display:flex;justify-content:space-between;gap:14px;font-size:10.5px;color:#8c98ab;margin-top:5px;font-family:var(--mono)}
+  #tip .t-row b{color:#dfe7f2;font-weight:500}
+
+  /* ---------- entrance ---------- */
+  @keyframes rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
+  .stat,.panel{animation:rise .55s cubic-bezier(.2,.7,.3,1) both}
+  .stat:nth-child(1){animation-delay:.02s}
+  .stat:nth-child(2){animation-delay:.06s}
+  .stat:nth-child(3){animation-delay:.1s}
+  .stat:nth-child(4){animation-delay:.14s}
+  .stat:nth-child(5){animation-delay:.18s}
+  .stat:nth-child(6){animation-delay:.22s}
+  .grid .panel:nth-child(1){animation-delay:.22s}
+  .grid .panel:nth-child(2){animation-delay:.26s}
+  section.panel{animation-delay:.3s}
+  @media(max-width:1240px){
+    .stats{grid-template-columns:repeat(3,1fr)}
+    .grid{grid-template-columns:1fr}
+  }
+  @media(max-width:760px){
+    .shell{padding:0 14px}
+    .stats{grid-template-columns:repeat(2,1fr)}
+  }
+
+  /* ---------- 环境条 ---------- */
+  .envline{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin:0 0 12px;padding:8px 13px;border-radius:11px;
+    border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.018);font-size:10.5px;color:var(--mute);letter-spacing:.03em}
+  .envline span{display:inline-flex;align-items:center;gap:6px}
+  .envline em{font-style:normal;color:#5f6b7d;letter-spacing:.1em}
+  .envline b{color:#c3cede;font-weight:500;font-family:var(--mono)}
+  .envline i{font-style:normal;color:#4a5464;font-size:9.5px;letter-spacing:0}
+
+  /* ---------- 加热状态 ---------- */
+  .stat.heat::before{opacity:.9}
+  .legend i.h{border:1.5px dashed var(--heat);background:rgba(255,138,61,.16)}
+  .heatring{fill:none;stroke:var(--heat);stroke-width:1.4;stroke-dasharray:2.6 3.4;opacity:.95;
+            transform-box:fill-box;transform-origin:center;animation:heatspin 4.2s linear infinite}
+  @keyframes heatspin{to{transform:rotate(360deg)}}
+  .node.heating .nlabel{fill:#ffc7a1}
+
+  .heat-box{margin-top:12px;padding:10px 11px 9px;border-radius:11px;border:1px solid rgba(255,138,61,.16);
+            background:linear-gradient(180deg,rgba(255,138,61,.06),rgba(255,138,61,.015));
+            transition:border-color .25s,background .25s,box-shadow .25s}
+  .heat-box.on{border-color:rgba(255,138,61,.45);background:linear-gradient(180deg,rgba(255,138,61,.14),rgba(255,138,61,.035));
+               box-shadow:0 0 26px -14px rgba(255,138,61,.9)}
+  .hb-head{display:flex;align-items:center;justify-content:space-between}
+  .hb-title{font-size:10.5px;letter-spacing:.09em;color:#a9b5c7;font-weight:600}
+  .hb-state{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.06em;color:#79838f}
+  .hb-state i{width:6px;height:6px;border-radius:50%;background:#5a6577}
+  .heat-box.on .hb-state{color:var(--heat)}
+  .heat-box.on .hb-state i{background:var(--heat);box-shadow:0 0 8px rgba(255,138,61,.9);animation:heatpulse 1.6s ease-in-out infinite}
+  @keyframes heatpulse{0%,100%{opacity:1}50%{opacity:.32}}
+  .hb-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px 16px;margin-top:9px;font-size:10.5px;font-family:var(--mono)}
+  .hb-grid div{display:flex;justify-content:space-between;gap:8px;color:var(--mute);min-width:0}
+  .hb-grid b{color:#dfe7f2;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px}
+  .heat-box.on .hb-grid b{color:#ffd2af}
+  .hb-cmd{display:flex;align-items:center;gap:7px;margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);flex-wrap:wrap}
+  .hb-cmd-label{font-size:10px;letter-spacing:.06em;color:#66707f}
+  .mini{font-family:inherit;font-size:10.5px;color:#c8d3e2;background:rgba(255,255,255,.05);border:1px solid var(--line);
+        border-radius:7px;padding:3.5px 9px;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+  .mini:hover{background:rgba(255,255,255,.1);border-color:var(--line-2)}
+  .mini.act{background:rgba(255,138,61,.18);border-color:rgba(255,138,61,.5);color:#ffcba6}
+  .hb-cmd-note{margin-left:auto;font-size:10px;color:#5a6577;font-family:var(--mono)}
+
+  .hb{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;letter-spacing:.02em;color:#7d8798}
+  .hb i{width:5px;height:5px;border-radius:50%;background:#4d5766}
+  .hb.on{color:#ffb382}
+  .hb.on i{background:var(--heat);box-shadow:0 0 7px rgba(255,138,61,.85)}
+  .hb em{font-style:normal;font-size:9px;color:#93a8c0;border:1px solid rgba(147,168,192,.35);border-radius:4px;padding:0 3px;line-height:1.4}
+  .chart-th b{color:#8b97a8;font-weight:500}
+
+</style>
+</head>
+<body>
+<div class="topline"></div>
+<div class="shell">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2.5 8.6h6.2"/><path d="M15.3 8.6h6.2"/>
+          <circle cx="12" cy="8.6" r="2.7"/>
+          <path d="M12 11.3v3.3a3.1 3.1 0 0 1-3.1 3.1H2.5"/>
+          <circle cx="12" cy="19.3" r="2.2" opacity=".5"/>
+        </svg>
+      </div>
+      <div>
+        <h1>管道智能化检测系统<span class="ver">PREVIEW</span></h1>
+        <p>Pipeline Telemetry · 温度 · 流速 · 电伴热 云端监测</p>
+      </div>
+    </div>
+    <div class="actions">
+      <div class="live" id="liveTag">
+        <span class="dot"></span><span id="liveText">实时采集中</span>
+        <span class="sep"></span><span class="ts" id="liveTs">--:--:--</span>
+      </div>
+      <button class="btn primary" id="regenBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.5 12a8.5 8.5 0 1 1-2.6-6.1"/><path d="M20.5 3.4v5.2h-5.2"/>
+        </svg>
+        重新生成管网
+      </button>
+      <button class="btn" id="pauseBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+          <path d="M9.5 5v14M14.5 5v14"/>
+        </svg>
+        <span id="pauseText">暂停</span>
+      </button>
+    </div>
+  </header>
+
+  <div class="envline">
+    <span><em>伴热</em><b>自限温电伴热带</b><i>管道凹槽嵌入 + 外覆保温层 · 低功率 25 W/m</i></span>
+    <span><em>判定</em><b>温度 0 ℃ / 流速 0.6 · 0.9 · 0.9 m/s</b><i>低于阈值判异常并自动投加热</i></span>
+  </div>
+
+  <section class="stats">
+    <div class="stat" style="--c:#8b93a7">
+      <div class="s-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="12" cy="12" r="3.1"/><path d="M12 2.6v3.6M12 17.8v3.6M2.6 12h3.6M17.8 12h3.6"/>
+        </svg>节点总数
+      </div>
+      <div class="s-value" id="stTotal">0</div>
+      <div class="ratio">
+        <i id="stMixTrunk" style="width:50%;background:linear-gradient(90deg,rgba(150,163,182,.35),rgba(150,163,182,.8))"></i>
+        <i id="stMixBranch" style="width:50%;background:linear-gradient(90deg,rgba(94,200,255,.3),rgba(94,200,255,.7))"></i>
+      </div>
+      <div class="s-foot"><span id="stMixText">主干 0 · 分支 0</span><b id="stAlive">0 / 0</b></div>
+    </div>
+
+    <div class="stat" style="--c:var(--ok)">
+      <div class="s-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 6.5 9.6 17 4 11.4"/>
+        </svg>正常节点
+      </div>
+      <div class="s-value" id="stNormal">0</div>
+      <div class="ratio"><i id="stNormalBar" style="width:0;background:linear-gradient(90deg,rgba(61,220,151,.4),rgba(61,220,151,.85))"></i></div>
+      <div class="s-foot"><span>正常率</span><b id="stNormalPct">—</b></div>
+    </div>
+
+    <div class="stat" style="--c:var(--bad)">
+      <div class="s-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 8.6v4.6"/><path d="M12 16.6h.01"/>
+          <path d="M10.3 3.9 2.2 17.9a2 2 0 0 0 1.7 3h16.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>
+        </svg>异常节点
+      </div>
+      <div class="s-value" id="stAbnormal" style="color:#ffa3b4">0</div>
+      <canvas class="spark" id="spAbn"></canvas>
+      <div class="s-foot"><span>判定</span><b>温度&lt;0 · 流速&lt;按管径</b></div>
+    </div>
+
+    <div class="stat" style="--c:var(--warm)">
+      <div class="s-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 14.8V4.2a2 2 0 1 0-4 0v10.6a4 4 0 1 0 4 0z"/>
+        </svg>平均温度
+      </div>
+      <div class="s-value" id="stTemp">—<small>°C</small></div>
+      <canvas class="spark" id="spTemp"></canvas>
+      <div class="s-foot"><span>区间</span><b id="stTempRange">—</b></div>
+    </div>
+
+    <div class="stat" style="--c:var(--cool)">
+      <div class="s-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2.9 17.1 8.6a7 7 0 1 1-10.2 0z"/>
+        </svg>平均流速
+      </div>
+      <div class="s-value" id="stFlow">—<small>m/s</small></div>
+      <canvas class="spark" id="spFlow"></canvas>
+      <div class="s-foot"><span>区间</span><b id="stFlowRange">—</b></div>
+    </div>
+    <div class="stat heat" style="--c:var(--heat)">
+      <div class="s-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3.2c2.7 3.2 4.5 5.5 4.5 7.8a4.5 4.5 0 0 1-9 0c0-2.3 1.8-4.6 4.5-7.8z"/>
+          <path d="M12 18.4v2.2"/>
+        </svg>加热中
+      </div>
+      <div class="s-value" id="stHeat" style="color:#ffb98c">0</div>
+      <canvas class="spark" id="spHeat"></canvas>
+      <div class="s-foot"><span>电伴热 · 自限温</span><b id="stHeatFoot">低功率 25 W/m</b></div>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="panel net-panel">
+      <div class="p-head">
+        <div class="p-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="5.5" cy="5.5" r="2.2"/><circle cx="18.5" cy="18.5" r="2.2"/>
+            <path d="M7.7 5.5h5.6a4.6 4.6 0 0 1 4.6 4.6v6.6"/>
+          </svg>管网拓扑
+        </div>
+        <div class="p-meta" id="pipeHint">—</div>
+      </div>
+      <div class="net-body">
+        <svg id="net" viewBox="0 0 940 720" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="legend">
+        <span><i class="n"></i>正常</span>
+        <span><i class="a"></i>异常</span>
+        <span><i class="h"></i>加热中</span>
+        <span><i class="s"></i>选中</span>
+        <span class="sp">点击节点查看详情</span>
+      </div>
+    </div>
+
+    <div class="panel detail-panel">
+      <div class="p-head">
+        <div class="p-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2.6 12h4.2l2.8-7.4 4.2 14.8 2.8-7.4h4.8"/>
+          </svg>节点详情
+        </div>
+        <span class="chip ok" id="detailStatus"><i></i>正常</span>
+      </div>
+
+      <div class="node-head">
+        <div>
+          <div class="nh-id" id="dId">—</div>
+          <div class="nh-meta">
+            <span id="dPos">[0.0, 0.0]</span><em>/</em>
+            <span id="dDist">0.0 km</span><em>/</em>
+            <span id="dDn">DN 400</span>
+          </div>
+        </div>
+        <div class="nh-meta" style="margin:0"><span id="dTime">--:--:--</span></div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric">
+          <div class="m-top">
+            <span class="m-label">温度 TEMPERATURE</span>
+            <span class="m-val" id="dTemp">—<i>°C</i></span>
+          </div>
+          <div class="meter"><span class="fill" id="dTempBar" style="width:0;background:linear-gradient(90deg,rgba(255,180,84,.55),var(--warm))"></span><span class="tick" style="left:22.2%"></span></div>
+          <div class="m-foot"><span id="dTempThr">阈值 0 °C</span><span id="dTempState">—</span></div>
+        </div>
+        <div class="metric">
+          <div class="m-top">
+            <span class="m-label">流速 FLOW RATE</span>
+            <span class="m-val" id="dFlow">—<i>m/s</i></span>
+          </div>
+          <div class="meter"><span class="fill" id="dFlowBar" style="width:0;background:linear-gradient(90deg,rgba(94,200,255,.55),var(--cool))"></span><span class="tick" id="dFlowTick" style="left:15%"></span></div>
+          <div class="m-foot"><span id="dFlowThr">阈值 0.90 m/s</span><span id="dFlowState">—</span></div>
+        </div>
+      </div>
+
+      <div class="heat-box" id="heatBox">
+        <div class="hb-head">
+          <span class="hb-title">电伴热 HEAT TRACE</span>
+          <span class="hb-state" id="dHeatState"><i></i>待机</span>
+        </div>
+        <div class="hb-grid">
+          <div><span>触发</span><b id="dHeatReason">—</b></div>
+          <div><span>功率</span><b id="dHeatPower">0 W/m</b></div>
+          <div><span>来源</span><b id="dHeatSrc">本地自动</b></div>
+          <div><span>持续</span><b id="dHeatDur">—</b></div>
+        </div>
+        <div class="hb-cmd">
+          <span class="hb-cmd-label">云端指令</span>
+          <button class="mini" data-cmd="on">开启加热</button>
+          <button class="mini" data-cmd="off">关闭加热</button>
+          <button class="mini" data-cmd="auto">恢复本地</button>
+          <span class="hb-cmd-note" id="dCmdNote">本地阈值自动投切</span>
+        </div>
+      </div>
+
+      <div class="charts">
+        <div class="chart-block">
+          <div class="chart-top">
+            <span class="chart-name">温度趋势<b id="tTempNow">—</b></span>
+            <span class="chart-th"><b id="tTempTh">阈值 0 °C</b> · 近 60s</span>
+          </div>
+          <canvas class="chart" id="chartTemp"></canvas>
+        </div>
+        <div class="chart-block">
+          <div class="chart-top">
+            <span class="chart-name">流速趋势<b id="tFlowNow">—</b></span>
+            <span class="chart-th"><b id="tFlowTh">阈值 0.90 m/s</b> · 近 60s</span>
+          </div>
+          <canvas class="chart" id="chartFlow"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="p-head">
+      <div class="p-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <path d="M3.5 6h17M3.5 12h17M3.5 18h11"/>
+        </svg>实时数据列表
+      </div>
+      <div class="p-meta" id="tblHint">—</div>
+    </div>
+    <div class="tbl-note">
+      <span><em>上传字段</em>编号 · 温度 · 流速 · 上传时间 · 加热是否开启 · 云端开关指令</span>
+      <span><em>本地</em>坐标由编号映射，不上传</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>节点</th><th>上传时间</th><th class="num">管径</th><th>坐标 (x, y)</th>
+            <th class="num">距起点</th><th class="num">温度 °C</th><th class="num">流速 m/s</th><th>加热</th><th>状态</th>
+          </tr>
+        </thead>
+        <tbody id="tblBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="foot">
+    <span>管道智能化检测系统 · PREVIEW</span>
+    <span>数据为本地模拟 · 管网含主干与分支 · 相邻节点间距取自 1 / 3 / 5 km · 加热按本地阈值自动投切（低功率 25 W/m）</span>
+  </div>
+</div>
+
+<div id="tip"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  var DIST = [1, 3, 5];
+  var nodes = [], edges = [], groups = [];
+  var history = {};
+  var agg = [];
+  var selectedId = null;
+  var totalLength = 0;
+  var running = true, timer = null;
+  var envTemp = -4.6;
+
+  var SVG_W = 940, SVG_H = 720;
+  var PAD_X = 88, PAD_Y = 46, PAD_R = 44;
+  var AVAIL_W = SVG_W - PAD_X - PAD_R;
+  var TRUNK_Y = SVG_H / 2;
+  var HALF_H  = SVG_H / 2 - PAD_Y;
+  var BLEND   = 0.68;
+
+  var T_MIN = -10, T_MAX = 35, F_MIN = 0, F_MAX = 2;
+
+  /* ---------- 配色（单一监控主题） ---------- */
+  var PAL = {
+    temp: "#ffb454", flow: "#5ec8ff", abn: "#ff5c7a", heat: "#ff8a3d",
+    grid: "rgba(255,255,255,.045)", gridLast: "rgba(255,255,255,.09)",
+    tick: "#4a5567", axis: "rgba(255,255,255,.09)",
+    thr: "rgba(255,92,122,.55)", thrText: "rgba(255,140,160,.8)",
+    badText: "#ff8fa3", muteText: "#5a6577"
+  };
+  function pal() { return PAL; }
+
+  function r2(v) { return Math.round(v * 100) / 100; }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  function pad2(n) { return ("0" + n).slice(-2); }
+  /* 判定与电伴热参数（依据《加热硬件基础》）：
+     环境 -6~27 ℃，正常流速区间按管径 D<250 0.6-0.9 / 250<D<500 0.9-1.4 / 500<D<1000 0.9-1.6 m/s，
+     低于阈值即判异常并自动开启低功率加热（自限温电伴热带），恢复正常后关闭。 */
+  var T_ON = 0, T_OFF = 2, FLOW_HYST = 0.06, HEAT_W = 25, CLOUD_TTL = 20000;
+
+  function bandOf(dn) {
+    if (dn < 250) return { lo: 0.6, hi: 0.9 };
+    if (dn < 500) return { lo: 0.9, hi: 1.4 };
+    return { lo: 0.9, hi: 1.6 };
+  }
+  function computeStatus(n) {
+    return (n.temp < T_ON || n.flow < bandOf(n.dn).lo) ? "abnormal" : "normal";
+  }
+  function mmss(ms) {
+    var s = Math.max(0, Math.floor(ms / 1000));
+    return pad2(Math.floor(s / 60)) + ":" + pad2(s % 60);
+  }
+  function heatReasonOf(n) {
+    var b = bandOf(n.dn), rs = [];
+    if (n.temp < T_ON) rs.push("温度 " + n.temp.toFixed(1) + " ℃ ＜ 0 ℃");
+    if (n.flow < b.lo) rs.push("流速 " + n.flow.toFixed(2) + " ＜ " + b.lo.toFixed(2) + " m/s");
+    return rs.join(" · ");
+  }
+  function applyHeat(n) {
+    var b = bandOf(n.dn);
+    if (n.cloudCmd !== null && n.cloudCmd !== undefined) {
+      if (n.heat !== !!n.cloudCmd) {
+        n.heat = !!n.cloudCmd;
+        n.heatSince = n.heat ? Date.now() : 0;
+        n.heatReason = n.heat ? "云端指令 · 开启低功率加热" : "云端指令 · 关闭加热";
+      }
+      n.heatSrc = "cloud";
+      return;
+    }
+    n.heatSrc = "local";
+    var need = n.temp < T_ON || n.flow < b.lo;
+    var done = n.temp >= T_OFF && n.flow >= b.lo + FLOW_HYST;
+    if (!n.heat && need) { n.heat = true; n.heatSince = Date.now(); n.heatReason = heatReasonOf(n); }
+    else if (n.heat && done) { n.heat = false; n.heatSince = 0; n.heatReason = ""; }
+  }
+  function fmtTime(ts) {
+    var d = new Date(ts);
+    return pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds());
+  }
+  function posStr(n) { return "[" + n.x.toFixed(1) + ", " + n.y.toFixed(1) + "]"; }
+  function nodeById(id) {
+    for (var i = 0; i < nodes.length; i++) if (nodes[i].id === id) return nodes[i];
+    return null;
+  }
+  function randKm() { return DIST[Math.floor(Math.random() * DIST.length)]; }
+
+  /* ---------- 布局核心：距离比例 + 等间距 混合 ---------- */
+  function blendAxis(dists, avail, alpha) {
+    var n = dists.length, out = [];
+    if (n < 2) return [avail / 2];
+    var span = (dists[n - 1] - dists[0]) || 1;
+    var eq = avail / (n - 1);
+    out[0] = 0;
+    for (var i = 1; i < n; i++) {
+      var prop = (dists[i] - dists[i - 1]) / span * avail;
+      out.push(out[i - 1] + (1 - alpha) * eq + alpha * prop);
+    }
+    return out;
+  }
+
+  /* ---------- 节点数据 ---------- */
+  function makeNodeData(id, x, y, routeDist, dn) {
+    dn = dn || 200;
+    var b = bandOf(dn), abn = Math.random() < 0.12, temp, flow;
+    if (abn) {
+      if (Math.random() < 0.6) {
+        temp = -(Math.random() * 6 + 0.4);
+        flow = clamp(b.lo + (Math.random() - 0.5) * 0.25, b.lo * 0.5, b.hi);
+      } else {
+        temp = 2 + Math.random() * 9;
+        flow = b.lo * (0.12 + Math.random() * 0.55);
+      }
+    } else {
+      temp = 2 + Math.random() * 22;
+      flow = b.lo + 0.06 + Math.random() * (b.hi - b.lo - 0.06);
+    }
+    var o = {
+      id: id, x: x, y: y, routeDist: routeDist, dn: dn,
+      temp: r2(temp), flow: r2(flow), time: Date.now(), lx: 0, ly: 0,
+      heat: false, heatSrc: "local", heatSince: 0, heatReason: "", cloudCmd: null, cmdUntil: 0
+    };
+    o.status = computeStatus(o);
+    applyHeat(o);
+    return o;
+  }
+
+  /* ---------- 构建：主干 + 多条分支（含二级分支） ---------- */
+  function buildPipeline() {
+    nodes = []; edges = []; groups = []; history = {}; agg = [];
+    var c = 0;
+    function add(x, y, rd, dn) { c++; var n = makeNodeData("N" + pad2(c), x, y, rd, dn); nodes.push(n); return n; }
+    function link(a, b, km) { edges.push({ a: a.id, b: b.id, km: km }); }
+
+    var TRUNK = 12, trunk = [];
+    var TRUNK_DN = [400, 315, 500, 630, 400, 315, 500, 400, 315, 500, 400, 630];
+    var prev = add(0, 0, 0, TRUNK_DN[0]), prevDist = 0;
+    trunk.push(prev);
+    for (var i = 1; i < TRUNK; i++) {
+      var km = randKm();
+      prevDist += km * 1000;
+      var n = add(prevDist, 0, prevDist, TRUNK_DN[i % TRUNK_DN.length]);
+      link(prev, n, km);
+      trunk.push(n); prev = n;
+    }
+
+    var attach = [1, 3, 5, 8, 10];
+    for (var b = 0; b < attach.length; b++) {
+      var base = trunk[attach[b]];
+      var dir = (b % 2 === 0) ? 1 : -1;
+      var dnBr = (b % 3 === 1) ? 315 : (b % 3 === 2 ? 250 : 200);
+      var segs = 2 + Math.floor(Math.random() * 2);
+      var chain = [], cur = base, acc = 0, kmTotal = 0;
+      for (var s = 0; s < segs; s++) {
+        var k2 = (Math.random() < 0.75) ? 1 : 3;
+        acc += k2 * 1000; kmTotal += k2;
+        var n2 = add(base.x, dir * acc, base.routeDist + acc, dnBr);
+        link(cur, n2, k2);
+        chain.push({ node: n2, km: k2 });
+        cur = n2;
+      }
+      groups.push({ base: base, dir: dir, chain: chain, kmTotal: kmTotal });
+
+      if ((b === 0 || b === 2) && chain.length >= 2) {
+        var tip = chain[1].node, accH = 0, chain2 = [], cur2 = tip, kmT2 = 0;
+        tip.lb = "left";
+        var hn = 1 + Math.floor(Math.random() * 2);
+        for (var h = 0; h < hn; h++) {
+          var k3 = (Math.random() < 0.65) ? 1 : 3;
+          accH += k3 * 1000; kmT2 += k3;
+          var n3 = add(tip.x + accH, tip.y, tip.routeDist + accH, 200);
+          n3.h = true;
+          link(cur2, n3, k3);
+          chain2.push({ node: n3, km: k3 });
+          cur2 = n3;
+        }
+        groups.push({ base: tip, dir: 0, chain: chain2, kmTotal: kmT2, horizontal: true });
+      }
+    }
+
+    totalLength = 0;
+    for (var e = 0; e < edges.length; e++) totalLength += edges[e].km * 1000;
+
+    for (var q = 0; q < nodes.length; q++) {
+      var nn = nodes[q];
+      history[nn.id] = [];
+      for (var h2 = 0; h2 < 30; h2++) {
+        history[nn.id].push({ t: Date.now() - (30 - h2) * 2000, temp: nn.temp, flow: nn.flow, status: nn.status });
+      }
+    }
+
+    // 统计序列（用于卡片迷你曲线）
+    var sumT = 0, sumF = 0, ab = 0, ht = 0;
+    for (var z = 0; z < nodes.length; z++) {
+      sumT += nodes[z].temp; sumF += nodes[z].flow;
+      if (nodes[z].status === "abnormal") ab++;
+      if (nodes[z].heat) ht++;
+    }
+    var bT = sumT / nodes.length, bF = sumF / nodes.length;
+    for (var a2 = 0; a2 < 30; a2++) {
+      agg.push({ avgT: bT + (Math.random() - 0.5) * 1.6, avgF: bF + (Math.random() - 0.5) * 0.1, abn: ab, heat: ht });
+    }
+
+    selectedId = nodes[0].id;
+    layoutNetwork();
+  }
+
+  /* ---------- 计算画布坐标 ---------- */
+  function layoutNetwork() {
+    var trunk = [];
+    for (var i = 0; i < nodes.length; i++) if (Math.abs(nodes[i].y) < 0.5) trunk.push(nodes[i]);
+    trunk.sort(function (a, b) { return a.x - b.x; });
+
+    var ds = trunk.map(function (n) { return n.x; });
+    var px = blendAxis(ds, AVAIL_W, BLEND);
+    for (var t = 0; t < trunk.length; t++) {
+      trunk[t].lx = PAD_X + px[t];
+      trunk[t].ly = TRUNK_Y;
+    }
+
+    var sideMax = { "1": 0, "-1": 0 };
+    for (var g = 0; g < groups.length; g++) {
+      var gr = groups[g];
+      if (gr.horizontal) continue;
+      if (gr.kmTotal > sideMax[gr.dir]) sideMax[gr.dir] = gr.kmTotal;
+    }
+
+    for (var g2 = 0; g2 < groups.length; g2++) {
+      var gp = groups[g2];
+      var cum = [0], acc = 0;
+      for (var k = 0; k < gp.chain.length; k++) { acc += gp.chain[k].km * 1000; cum.push(acc); }
+
+      if (gp.horizontal) {
+        var extH = Math.min(164, 44 + gp.kmTotal * 26);
+        var hp = blendAxis(cum, extH, BLEND);
+        for (var m = 0; m < gp.chain.length; m++) {
+          gp.chain[m].node.lx = gp.base.lx + hp[m + 1];
+          gp.chain[m].node.ly = gp.base.ly;
+        }
+      } else {
+        var ratio = sideMax[gp.dir] ? gp.kmTotal / sideMax[gp.dir] : 1;
+        var ext = HALF_H * Math.max(0.6, ratio);
+        var vp = blendAxis(cum, ext, BLEND);
+        for (var m2 = 0; m2 < gp.chain.length; m2++) {
+          gp.chain[m2].node.lx = gp.base.lx;
+          gp.chain[m2].node.ly = gp.base.ly - gp.dir * vp[m2 + 1];
+        }
+      }
+    }
+
+    var maxLx = 0, minLx = Infinity;
+    for (var z = 0; z < nodes.length; z++) {
+      if (nodes[z].lx > maxLx) maxLx = nodes[z].lx;
+      if (nodes[z].lx < minLx) minLx = nodes[z].lx;
+    }
+    var overflow = maxLx - (SVG_W - 34);
+    if (overflow > 0) {
+      var f = (SVG_W - 34 - minLx) / (maxLx - minLx);
+      for (var z2 = 0; z2 < nodes.length; z2++) nodes[z2].lx = minLx + (nodes[z2].lx - minLx) * f;
+    }
+  }
+
+  /* ---------- 模拟数据刷新 ---------- */
+  function tick() {
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i], b = bandOf(n.dn);
+      if (n.cloudCmd !== null && n.cmdUntil && Date.now() > n.cmdUntil) {
+        n.cloudCmd = null; n.cmdUntil = 0; n.heatSrc = "local";
+      }
+      var low = n.temp < T_ON || n.flow < b.lo;
+      if (low) {
+        if (n.temp < T_ON) n.temp = r2(clamp(n.temp + (Math.random() - 0.58) * 0.9, -9, -0.05));
+        if (n.flow < b.lo) n.flow = r2(clamp(n.flow + (Math.random() - 0.58) * 0.07, 0.02, b.lo - 0.01));
+        if (n.heat) {
+          n.temp = r2(clamp(n.temp + 0.6 + Math.random() * 0.6, -9, 14));
+          n.flow = r2(clamp(n.flow + 0.05 + Math.random() * 0.07, 0.02, b.hi));
+        }
+      } else {
+        var target = 7 + Math.random() * 5;
+        n.temp = r2(clamp(n.temp + (target - n.temp) * 0.06 + (Math.random() - 0.5) * 0.55, 2.4, 30));
+        var fMid = (b.lo + b.hi) / 2;
+        n.flow = r2(clamp(n.flow + (fMid - n.flow) * 0.09 + (Math.random() - 0.5) * 0.08, b.lo + 0.02, b.hi - 0.02));
+        if (Math.random() < 0.022) {
+          if (Math.random() < 0.55) n.temp = r2(-(Math.random() * 5 + 0.3));
+          else n.flow = r2(b.lo * (0.15 + Math.random() * 0.55));
+        }
+      }
+      n.status = computeStatus(n);
+      applyHeat(n);
+      n.time = Date.now();
+      history[n.id].push({ t: n.time, temp: n.temp, flow: n.flow, status: n.status, heat: n.heat });
+      if (history[n.id].length > 40) history[n.id].shift();
+    }
+    envTemp = r2(clamp(envTemp + (Math.random() - 0.5) * 0.35, -6, 4));
+    pushAgg();
+    renderAll();
+  }
+
+  function pushAgg() {
+    if (!nodes.length) return;
+    var sT = 0, sF = 0, ab = 0, ht = 0;
+    for (var i = 0; i < nodes.length; i++) {
+      sT += nodes[i].temp; sF += nodes[i].flow;
+      if (nodes[i].status === "abnormal") ab++;
+      if (nodes[i].heat) ht++;
+    }
+    agg.push({ avgT: sT / nodes.length, avgF: sF / nodes.length, abn: ab, heat: ht });
+    if (agg.length > 40) agg.shift();
+  }
+
+  /* ---------- 绘制管网 ---------- */
+  function renderNetwork() {
+    var svg = document.getElementById("net");
+    var parts = [];
+
+    parts.push(
+      '<defs>' +
+        '<pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">' +
+          '<circle cx="1" cy="1" r="0.85" fill="rgba(255,255,255,.055)"/>' +
+        '</pattern>' +
+        '<filter id="glow" x="-40%" y="-40%" width="180%" height="180%">' +
+          '<feGaussianBlur stdDeviation="2.4" result="b"/>' +
+          '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>' +
+        '</filter>' +
+      '</defs>'
+    );
+    parts.push('<rect class="netdots" x="0" y="0" width="' + SVG_W + '" height="' + SVG_H + '" fill="url(#dots)"/>');
+
+    for (var e = 0; e < edges.length; e++) {
+      var ed = edges[e], a = nodeById(ed.a), b = nodeById(ed.b);
+      var x1 = a.lx, y1 = a.ly, x2 = b.lx, y2 = b.ly;
+      var seg = 'x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '"';
+      parts.push('<line class="pipe-base" ' + seg + '/>');
+      parts.push('<line class="pipe-core" ' + seg + '/>');
+      parts.push('<line class="pipe-flow" ' + seg + '/>');
+
+      var mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      var vertical = Math.abs(y2 - y1) > Math.abs(x2 - x1);
+      if (vertical) {
+        var vOff = (e % 2 === 0) ? -9 : -22;
+        parts.push('<text class="seg-label" x="' + (mx + vOff) + '" y="' + (my + 3) + '" text-anchor="end">' + ed.km + ' km</text>');
+      } else {
+        var hOff = (e % 2 === 0) ? -10 : -23;
+        parts.push('<text class="seg-label" x="' + mx + '" y="' + (my + hOff) + '" text-anchor="middle">' + ed.km + ' km</text>');
+      }
+    }
+
+    for (var j = 0; j < nodes.length; j++) {
+      var nd = nodes[j];
+      var isTrunk = Math.abs(nd.y) < 0.5;
+      var isAbn = nd.status === "abnormal";
+      var isHeat = !!nd.heat;
+      var col = isAbn ? "#ff5c7a" : "#3ddc97";
+      var g = '<g class="node ' + nd.status + (isHeat ? " heating" : "") + '" data-id="' + nd.id + '">';
+      g += '<title>' + nd.id + ' · [' + nd.x.toFixed(0) + ', ' + nd.y.toFixed(0) + '] m · ' +
+           nd.temp.toFixed(1) + ' °C · ' + nd.flow.toFixed(2) + ' m/s · DN' + nd.dn + ' · ' +
+           (isHeat ? '加热中' : '未加热') + '</title>';
+      g += '<circle class="halo" cx="' + nd.lx + '" cy="' + nd.ly + '" r="9.8"/>';
+      if (isAbn) g += '<circle class="abnglow" cx="' + nd.lx + '" cy="' + nd.ly + '" r="24"/>';
+      if (nd.id === selectedId) g += '<circle class="selglow" cx="' + nd.lx + '" cy="' + nd.ly + '" r="19"/>';
+      if (isHeat) g += '<circle class="heatring" cx="' + nd.lx + '" cy="' + nd.ly + '" r="8.4"/>';
+      g += '<circle class="nring" cx="' + nd.lx + '" cy="' + nd.ly + '" r="5"/>';
+      g += '<circle class="ndot" cx="' + nd.lx + '" cy="' + nd.ly + '" r="1.8"/>';
+      if (nd.id === selectedId) {
+        g += '<circle class="selring" cx="' + nd.lx + '" cy="' + nd.ly + '" r="9.4"/>';
+      }
+      g += '</g>';
+      parts.push(g);
+
+      var lx, ly, anchor;
+      if (isTrunk || nd.h) { lx = nd.lx; ly = nd.ly + 18; anchor = "middle"; }
+      else if (nd.lb === "left") { lx = nd.lx - 10; ly = nd.ly + 3; anchor = "end"; }
+      else { lx = nd.lx + 10; ly = nd.ly + 3; anchor = "start"; }
+      parts.push('<text class="nlabel' + (isAbn ? " abn" : "") + '" x="' + lx + '" y="' + ly + '" text-anchor="' + anchor + '">' + nd.id + '</text>');
+    }
+
+    var first = nodes[0], lastLx = -1, last = null;
+    for (var t2 = 0; t2 < nodes.length; t2++) {
+      var q = nodes[t2];
+      if (Math.abs(q.y) < 0.5 && q.lx > lastLx) { lastLx = q.lx; last = q; }
+    }
+    parts.push('<text class="endlabel" x="' + (first.lx - 12) + '" y="' + (TRUNK_Y - 12) + '" text-anchor="end">起点</text>');
+    if (last) parts.push('<text class="endlabel" x="' + (last.lx + 13) + '" y="' + (TRUNK_Y - 12) + '" text-anchor="start">终点</text>');
+
+    svg.innerHTML = parts.join("");
+    var gs = svg.querySelectorAll(".node");
+    for (var c = 0; c < gs.length; c++) {
+      gs[c].addEventListener("click", function () { selectNode(this.getAttribute("data-id")); });
+    }
+  }
+
+  /* ---------- 统计 ---------- */
+  function renderStats() {
+    var total = nodes.length, normal = 0, abnormal = 0, sumT = 0, sumF = 0, trunkN = 0, heatN = 0;
+    var minT = Infinity, maxT = -Infinity, minF = Infinity, maxF = -Infinity;
+    for (var i = 0; i < nodes.length; i++) {
+      var n = nodes[i];
+      if (n.status === "normal") normal++; else abnormal++;
+      if (n.heat) heatN++;
+      if (Math.abs(n.y) < 0.5) trunkN++;
+      sumT += n.temp; sumF += n.flow;
+      if (n.temp < minT) minT = n.temp;
+      if (n.temp > maxT) maxT = n.temp;
+      if (n.flow < minF) minF = n.flow;
+      if (n.flow > maxF) maxF = n.flow;
+    }
+
+    document.getElementById("stTotal").textContent = total;
+    document.getElementById("stNormal").textContent = normal;
+    document.getElementById("stAbnormal").textContent = abnormal;
+    document.getElementById("stAlive").textContent = total + " / " + total;
+    document.getElementById("stNormalPct").textContent = total ? (normal / total * 100).toFixed(0) + "%" : "—";
+    document.getElementById("stNormalBar").style.width = (total ? normal / total * 100 : 0) + "%";
+
+    var avgT = total ? sumT / total : 0, avgF = total ? sumF / total : 0;
+    document.getElementById("stTemp").innerHTML = total ? avgT.toFixed(1) + '<small>°C</small>' : "—";
+    document.getElementById("stFlow").innerHTML = total ? avgF.toFixed(2) + '<small>m/s</small>' : "—";
+    document.getElementById("stTempRange").textContent = total ? minT.toFixed(1) + " ~ " + maxT.toFixed(1) + " °C" : "—";
+    document.getElementById("stFlowRange").textContent = total ? minF.toFixed(2) + " ~ " + maxF.toFixed(2) + " m/s" : "—";
+    document.getElementById("stMixTrunk").style.width = (total ? trunkN / total * 100 : 50) + "%";
+    document.getElementById("stMixBranch").style.width = (total ? (total - trunkN) / total * 100 : 50) + "%";
+    document.getElementById("stMixText").textContent = "主干 " + trunkN + " · 分支 " + (total - trunkN);
+
+    document.getElementById("stHeat").textContent = heatN;
+    document.getElementById("stHeatFoot").textContent = heatN ? (HEAT_W + " W/m × " + heatN) : ("低功率 " + HEAT_W + " W/m");
+    drawSpark("spHeat", agg.map(function (d) { return d.heat; }), pal().heat);
+    drawSpark("spTemp", agg.map(function (d) { return d.avgT; }), pal().temp);
+    drawSpark("spFlow", agg.map(function (d) { return d.avgF; }), pal().flow);
+    drawSpark("spAbn", agg.map(function (d) { return d.abn; }), pal().abn);
+  }
+
+  /* ---------- 详情 ---------- */
+  function renderDetail() {
+    var n = nodeById(selectedId);
+    if (!n) return;
+    var ok = n.status === "normal";
+    var bd = bandOf(n.dn);
+
+    document.getElementById("dId").textContent = n.id;
+    document.getElementById("dPos").textContent = posStr(n);
+    document.getElementById("dDist").textContent = (n.routeDist / 1000).toFixed(1) + " km";
+    document.getElementById("dDn").textContent = "DN " + n.dn;
+    document.getElementById("dTime").textContent = fmtTime(n.time);
+
+    document.getElementById("dTemp").innerHTML = n.temp.toFixed(1) + '<i>°C</i>';
+    document.getElementById("dFlow").innerHTML = n.flow.toFixed(2) + '<i>m/s</i>';
+
+    var tb = document.getElementById("dTempBar"), fb = document.getElementById("dFlowBar");
+    tb.style.width = clamp((n.temp - T_MIN) / (T_MAX - T_MIN), 0, 1) * 100 + "%";
+    fb.style.width = clamp((n.flow - F_MIN) / (F_MAX - F_MIN), 0, 1) * 100 + "%";
+    tb.style.background = n.temp < T_ON
+      ? "linear-gradient(90deg,rgba(255,92,122,.5),#ff5c7a)"
+      : "linear-gradient(90deg,rgba(255,180,84,.5),#ffb454)";
+    fb.style.background = n.flow < bd.lo
+      ? "linear-gradient(90deg,rgba(255,92,122,.5),#ff5c7a)"
+      : "linear-gradient(90deg,rgba(94,200,255,.5),#5ec8ff)";
+    document.getElementById("dFlowTick").style.left = (bd.lo / F_MAX * 100) + "%";
+
+    document.getElementById("dTempThr").textContent = "阈值 " + T_ON.toFixed(0) + " ℃";
+    document.getElementById("dFlowThr").textContent = "阈值 " + bd.lo.toFixed(2) + " m/s";
+    document.getElementById("dTempState").textContent = n.temp < T_ON ? "低于下限" : "正常区间";
+    document.getElementById("dTempState").style.color = n.temp < T_ON ? pal().badText : pal().muteText;
+    document.getElementById("dFlowState").textContent = n.flow < bd.lo ? "低于下限" : "正常区间";
+    document.getElementById("dFlowState").style.color = n.flow < bd.lo ? pal().badText : pal().muteText;
+
+    var chip = document.getElementById("detailStatus");
+    chip.className = "chip " + (ok ? "ok" : "bad");
+    chip.innerHTML = "<i></i>" + (ok ? "正常" : "异常");
+
+    /* --- 电伴热状态 --- */
+    var box = document.getElementById("heatBox");
+    if (box) box.classList.toggle("on", !!n.heat);
+    document.getElementById("dHeatState").innerHTML = "<i></i>" + (n.heat ? "加热中" : "待机");
+    document.getElementById("dHeatReason").textContent = n.heat
+      ? (n.heatReason || "云端指令") : (heatReasonOf(n) || "温度与流速均正常");
+    document.getElementById("dHeatPower").textContent = n.heat ? "低功率 " + HEAT_W + " W/m" : "0 W/m";
+    document.getElementById("dHeatSrc").textContent = (n.cloudCmd !== null && n.cloudCmd !== undefined)
+      ? "云端指令" : (n.heat ? "本地自动" : "—");
+    document.getElementById("dHeatDur").textContent = n.heat ? mmss(Date.now() - n.heatSince) : "—";
+    document.getElementById("dCmdNote").textContent = n.cloudCmd === null
+      ? "本地阈值自动投切" : ("云端指令 · " + (n.cloudCmd ? "开启中" : "关闭中") + " · 20s 回执");
+    var cmds = document.querySelectorAll("#heatBox .mini");
+    for (var c = 0; c < cmds.length; c++) {
+      var kc = cmds[c].getAttribute("data-cmd");
+      var act = (kc === "auto" && n.cloudCmd === null) ||
+                (kc === "on" && n.cloudCmd === true) ||
+                (kc === "off" && n.cloudCmd === false);
+      if (act) cmds[c].classList.add("act"); else cmds[c].classList.remove("act");
+    }
+
+    var h = history[n.id] || [];
+    document.getElementById("tTempNow").textContent = n.temp.toFixed(1) + "°C";
+    document.getElementById("tFlowNow").textContent = n.flow.toFixed(2) + "m/s";
+    document.getElementById("tTempTh").textContent = "阈值 " + T_ON.toFixed(0) + " ℃";
+    document.getElementById("tFlowTh").textContent = "阈值 " + bd.lo.toFixed(2) + " · 区间 " + bd.lo.toFixed(2) + "–" + bd.hi.toFixed(2);
+
+    drawChart("chartTemp", h.map(function (x) { return x.temp; }),
+      { color: pal().temp, threshold: T_ON, label: T_ON.toFixed(0), min: T_MIN, max: T_MAX, dec: 0, div: 3 });
+    drawChart("chartFlow", h.map(function (x) { return x.flow; }),
+      { color: pal().flow, threshold: bd.lo, label: bd.lo.toFixed(2), min: F_MIN, max: F_MAX, dec: 1, div: 4 });
+  }
+
+  /* ---------- 表格 ---------- */
+  function renderTable() {
+    var body = document.getElementById("tblBody");
+    var rows = nodes.slice().sort(function (a, b) { return a.routeDist - b.routeDist; });
+    var html = "", heatN = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var n = rows[i], abn = n.status === "abnormal", hot = !!n.heat;
+      if (hot) heatN++;
+      html += '<tr class="' + (abn ? "abn " : "") + (hot ? "hot " : "") + (n.id === selectedId ? "sel" : "") + '" data-id="' + n.id + '">' +
+        '<td class="mono strong">' + n.id + '</td>' +
+        '<td class="mono">' + fmtTime(n.time) + '</td>' +
+        '<td class="num mono">DN ' + n.dn + '</td>' +
+        '<td class="mono">' + posStr(n) + '</td>' +
+        '<td class="num mono">' + (n.routeDist / 1000).toFixed(1) + ' km</td>' +
+        '<td class="num mono">' + n.temp.toFixed(1) + '</td>' +
+        '<td class="num mono">' + n.flow.toFixed(2) + '</td>' +
+        '<td><span class="hb ' + (hot ? "on" : "") + '"><i></i>' + (hot ? "加热中" : "待机") +
+          (hot && n.heatSrc === "cloud" ? '<em>云</em>' : '') +
+          (!hot && n.cloudCmd === false ? '<em>云·禁</em>' : '') + '</span></td>' +
+        '<td><span class="st ' + (abn ? "bad" : "ok") + '"><i></i>' + (abn ? "异常" : "正常") + '</span></td>' +
+        '</tr>';
+    }
+    body.innerHTML = html;
+    var trs = body.querySelectorAll("tr");
+    for (var k = 0; k < trs.length; k++) {
+      trs[k].addEventListener("click", function () { selectNode(this.getAttribute("data-id")); });
+    }
+    document.getElementById("tblHint").textContent =
+      "共 " + nodes.length + " 个节点 · 加热 " + heatN + " · 2s 刷新 · 流速阈值按管径 0.6 / 0.9 / 0.9";
+  }
+
+  /* ---------- 平滑曲线 ---------- */
+  function smooth(ctx, pts) {
+    if (pts.length < 3) {
+      ctx.moveTo(pts[0][0], pts[0][1]);
+      for (var q = 1; q < pts.length; q++) ctx.lineTo(pts[q][0], pts[q][1]);
+      return;
+    }
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (var i = 0; i < pts.length - 1; i++) {
+      var p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+      var t = 0.18;
+      var c1x = p1[0] + (p2[0] - p0[0]) * t, c1y = p1[1] + (p2[1] - p0[1]) * t;
+      var c2x = p2[0] - (p3[0] - p1[0]) * t, c2y = p2[1] - (p3[1] - p1[1]) * t;
+      ctx.bezierCurveTo(c1x, c1y, c2x, c2y, p2[0], p2[1]);
+    }
+  }
+
+  /* ---------- 迷你曲线 ---------- */
+  function drawSpark(id, values, color) {
+    var cv = document.getElementById(id);
+    if (!cv) return;
+    var w = cv.clientWidth, h = cv.clientHeight || 26;
+    if (!w) return;
+    var dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    var ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    if (!values.length) return;
+
+    var min = Math.min.apply(null, values), max = Math.max.apply(null, values);
+    if (max - min < 1e-6) { max = min + 1; }
+    var padT = 4, padB = 3;
+    var xFor = function (i) { return values.length === 1 ? w / 2 : (i / (values.length - 1)) * w; };
+    var yFor = function (v) { return padT + (h - padT - padB) * (1 - (v - min) / (max - min)); };
+
+    ctx.beginPath();
+    ctx.moveTo(xFor(0), h);
+    for (var i = 0; i < values.length; i++) ctx.lineTo(xFor(i), yFor(values[i]));
+    ctx.lineTo(xFor(values.length - 1), h);
+    ctx.closePath();
+    var g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, color + "44");
+    g.addColorStop(1, color + "00");
+    ctx.fillStyle = g; ctx.fill();
+
+    ctx.beginPath();
+    smooth(ctx, values.map(function (v, i) { return [xFor(i), yFor(v)]; }));
+    ctx.strokeStyle = color; ctx.lineWidth = 1.3; ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.stroke();
+
+    var lx = xFor(values.length - 1), ly = yFor(values[values.length - 1]);
+    ctx.beginPath(); ctx.arc(lx, ly, 1.9, 0, Math.PI * 2);
+    ctx.fillStyle = color; ctx.fill();
+  }
+
+  /* ---------- 趋势图 ---------- */
+  function drawChart(id, series, o) {
+    var canvas = document.getElementById(id);
+    if (!canvas) return;
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w || !h) return;
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
+    var ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    var padL = 30, padR = 8, padT = 10, padB = 14;
+    var plotW = w - padL - padR, plotH = h - padT - padB;
+    var min = o.min, max = o.max;
+    var yFor = function (v) { return padT + plotH * (1 - (v - min) / (max - min)); };
+
+    ctx.font = "9px ui-monospace, Consolas, monospace";
+    ctx.textAlign = "right";
+    var div = o.div || 3;
+    for (var i = 0; i <= div; i++) {
+      var y = padT + plotH * (i / div);
+      ctx.beginPath();
+      ctx.moveTo(padL, y + 0.5); ctx.lineTo(padL + plotW, y + 0.5);
+      ctx.strokeStyle = i === div ? pal().gridLast : pal().grid;
+      ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = pal().tick;
+      var val = max - (max - min) * (i / div);
+      var clash = o.threshold != null && Math.abs(val - o.threshold) < (max - min) / div * 0.45;
+      if (!clash) ctx.fillText(val.toFixed(o.dec), padL - 7, y + 3);
+    }
+
+    if (o.threshold != null) {
+      var ty = yFor(o.threshold);
+      if (ty >= padT - 1 && ty <= padT + plotH + 1) {
+        ctx.save();
+        ctx.strokeStyle = pal().thr;
+        ctx.setLineDash([3, 4]); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(padL, ty); ctx.lineTo(padL + plotW, ty); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = pal().thrText;
+        ctx.textAlign = "left";
+        ctx.fillText(o.label, padL + 4, ty - 3.5);
+      }
+    }
+
+    var n = series.length;
+    if (n > 1) {
+      var xFor = function (k) { return padL + plotW * (k / (n - 1)); };
+      var pts = series.map(function (v, k) { return [xFor(k), yFor(v)]; });
+
+      ctx.beginPath();
+      ctx.moveTo(pts[0][0], padT + plotH);
+      pts.forEach(function (p) { ctx.lineTo(p[0], p[1]); });
+      ctx.lineTo(pts[n - 1][0], padT + plotH);
+      ctx.closePath();
+      var g2 = ctx.createLinearGradient(0, padT, 0, padT + plotH);
+      g2.addColorStop(0, o.color + "2b");
+      g2.addColorStop(1, o.color + "00");
+      ctx.fillStyle = g2; ctx.fill();
+
+      ctx.beginPath();
+      smooth(ctx, pts);
+      ctx.strokeStyle = o.color; ctx.lineWidth = 1.6;
+      ctx.lineJoin = "round"; ctx.lineCap = "round";
+      ctx.shadowColor = o.color + "66"; ctx.shadowBlur = 6;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      var lp = pts[n - 1];
+      ctx.beginPath(); ctx.arc(lp[0], lp[1], 4.2, 0, Math.PI * 2);
+      ctx.fillStyle = o.color + "33"; ctx.fill();
+      ctx.beginPath(); ctx.arc(lp[0], lp[1], 2.1, 0, Math.PI * 2);
+      ctx.fillStyle = o.color; ctx.fill();
+    }
+
+    ctx.strokeStyle = pal().axis;
+    ctx.beginPath(); ctx.moveTo(padL + 0.5, padT); ctx.lineTo(padL + 0.5, padT + plotH); ctx.stroke();
+  }
+
+  /* ---------- 悬浮提示 ---------- */
+  function initTip() {
+    var svg = document.getElementById("net");
+    var tip = document.getElementById("tip");
+    function hide() { tip.classList.remove("on"); }
+    svg.addEventListener("mousemove", function (ev) {
+      var g = ev.target && ev.target.closest ? ev.target.closest("g.node") : null;
+      if (!g) { hide(); return; }
+      var nd = nodeById(g.getAttribute("data-id"));
+      if (!nd) { hide(); return; }
+      var isAbn = nd.status === "abnormal";
+      var col = isAbn ? "#ff5c7a" : "#3ddc97";
+      tip.innerHTML =
+        '<div class="t-id"><i style="background:' + col + '"></i>' + nd.id +
+          '<span style="margin-left:auto;font-weight:400;color:' + col + '">' +
+          (isAbn ? "异常" : "正常") + '</span></div>' +
+        '<div class="t-row"><span>温度</span><b>' + nd.temp.toFixed(1) + ' °C</b></div>' +
+        '<div class="t-row"><span>流速</span><b>' + nd.flow.toFixed(2) + ' m/s</b></div>' +
+        '<div class="t-row"><span>距起点</span><b>' + (nd.routeDist / 1000).toFixed(1) + ' km</b></div>' +
+        '<div class="t-row"><span>管径</span><b>DN ' + nd.dn + '</b></div>' +
+        '<div class="t-row"><span>加热</span><b style="color:' + (nd.heat ? "#ffb382" : "#8c98ab") + '">' +
+          (nd.heat ? (nd.heatSrc === "cloud" ? "加热中 · 云端" : "加热中 · 本地") : "待机") + '</b></div>';
+      tip.style.left = ev.clientX + "px";
+      tip.style.top = ev.clientY + "px";
+      tip.classList.add("on");
+    });
+    svg.addEventListener("mouseleave", hide);
+    window.addEventListener("scroll", hide, { passive: true });
+    svg.addEventListener("click", hide);
+  }
+
+  /* ---------- 交互 ---------- */
+  function selectNode(id) {
+    if (!nodeById(id)) return;
+    selectedId = id;
+    renderNetwork();
+    renderDetail();
+    renderTable();
+  }
+
+  function renderAll() {
+    renderStats();
+    renderNetwork();
+    renderDetail();
+    renderTable();
+    document.getElementById("pipeHint").textContent =
+      edges.length + " 段 · " + (totalLength / 1000).toFixed(0) + " km · " + groups.length + " 分支";
+    document.getElementById("liveTs").textContent = fmtTime(Date.now());
+    var ev = document.getElementById("envT");
+    if (ev) ev.textContent = envTemp.toFixed(1) + " ℃";
+  }
+
+  function startTimer() {
+    if (timer) clearInterval(timer);
+    timer = setInterval(tick, 2000);
+  }
+
+  function init() {
+    document.getElementById("regenBtn").addEventListener("click", function () {
+      buildPipeline();
+      renderAll();
+    });
+    document.getElementById("pauseBtn").addEventListener("click", function () {
+      running = !running;
+      var live = document.getElementById("liveTag");
+      var txt = document.getElementById("pauseText");
+      if (running) {
+        startTimer(); txt.textContent = "暂停";
+        live.classList.remove("paused");
+        document.getElementById("liveText").textContent = "实时采集中";
+      } else {
+        if (timer) clearInterval(timer);
+        txt.textContent = "继续";
+        live.classList.add("paused");
+        document.getElementById("liveText").textContent = "已暂停";
+      }
+    });
+    var cmds = document.querySelectorAll("#heatBox .mini");
+    for (var i = 0; i < cmds.length; i++) {
+      cmds[i].addEventListener("click", function () {
+        var n = nodeById(selectedId);
+        if (!n) return;
+        var c = this.getAttribute("data-cmd");
+        if (c === "auto") { n.cloudCmd = null; n.cmdUntil = 0; }
+        else { n.cloudCmd = (c === "on"); n.cmdUntil = Date.now() + CLOUD_TTL; }
+        applyHeat(n);
+        renderAll();
+      });
+    }
+    window.addEventListener("resize", function () {
+      renderDetail();
+      renderStats();
+    });
+    buildPipeline();
+    renderAll();
+    initTip();
+    startTimer();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

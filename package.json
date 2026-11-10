@@ -1,0 +1,16 @@
+{
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.80",
+    "exceljs": "^4.4.0",
+    "mysql2": "^3.24.6",
+    "pdfjs-dist": "^4.10.38"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "seed": "node tools/seed.js",
+    "verify": "node tools/verify_api.js",
+    "seed:reset": "node tools/seed.js --reset",
+    "use:mysql": "node tools/use-mysql.js mysql",
+    "use:sqlite": "node tools/use-mysql.js sqlite"
+  }
+}

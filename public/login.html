@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>管理员登录 · 管道智能化检测系统</title>
+<link rel="stylesheet" href="/assets/login.css?v=20261110">
+</head>
+<body>
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="wrap">
+  <section class="brand">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 48 48" fill="none">
+        <path d="M8 34h32" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+        <path d="M14 34V20M24 34V14M34 34V24" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+        <circle cx="14" cy="20" r="3.2" fill="currentColor"/>
+        <circle cx="24" cy="14" r="3.2" fill="currentColor"/>
+        <circle cx="34" cy="24" r="3.2" fill="currentColor"/>
+      </svg>
+    </div>
+    <p class="eyebrow">PIPELINE TELEMETRY · PREVIEW</p>
+    <h1>管道智能化检测系统</h1>
+    <p class="sub">节点式温度 · 流速 · 电伴热 云端监测</p>
+    <ul class="meta">
+      <li><span>监测参数</span><b>温度 · 流速 · 电伴热</b></li>
+          <li><span>加热方式</span><b>自限温电伴热带 · 低功率 25 W/m</b></li>
+          <li><span>告警判定</span><b>低于阈值判异常并自动投加热</b></li>
+    </ul>
+    <p class="tags"><i class="ok"></i>30 个监测节点<i class="ok"></i>2 s 刷新<i class="ok"></i>云端指令开关加热</p>
+  </section>
+
+  <section class="card">
+    <h2>管理员登录</h2>
+    <p class="hint">请使用管理员账号进入监控面板 · 默认 123456 / 123456</p>
+    <form id="form" novalidate>
+      <label class="field">
+        <span>账号</span>
+        <input id="u" name="username" autocomplete="username" placeholder="请输入账号" spellcheck="false" autofocus>
+      </label>
+      <label class="field">
+        <span>密码</span>
+        <span class="pwd">
+          <input id="p" name="password" type="password" autocomplete="current-password" placeholder="请输入密码">
+          <button type="button" id="eye" tabindex="-1" aria-label="显示密码">显示</button>
+        </span>
+      </label>
+      <p class="err" id="err" role="alert"></p>
+      <button class="primary" type="submit" id="submit">登 录</button>
+    </form>
+
+    <div class="divider" id="divider" hidden><span>调试通道</span></div>
+    <button class="ghost" type="button" id="devBtn" hidden>免密直达（调试通道）</button>
+    <p class="devnote" id="devNote" hidden>免密通道已启用 · 任何人可进入 · 上线前移除</p>
+
+    <p class="foot">PREVIEW · 数据为本地模拟 · 无需真实设备</p>
+  </section>
+</div>
+<script src="/assets/login.js?v=20261110"></script>
+</body>
+</html>
