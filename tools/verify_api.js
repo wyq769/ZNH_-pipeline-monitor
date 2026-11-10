@@ -1,4 +1,4 @@
-﻿"use strict";
+"use strict";
 const BASE = "http://127.0.0.1:8787";
 let cookie = "";
 function hd(extra) { return Object.assign(cookie ? { cookie } : {}, extra || {}); }

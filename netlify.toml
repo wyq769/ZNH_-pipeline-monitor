@@ -1,4 +1,4 @@
-﻿[build]
+[build]
   command = "node tools/build-demo.js"
   publish = "demo-dist"
 

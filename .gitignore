@@ -1,8 +1,10 @@
-﻿node_modules/
+node_modules/
 mysql/
 .npmcache/
 data/*.log
-data/*.db
+data/*.db*
+*.sqlite
+*.sqlite3
 shots/
 browser-screenshots/
 test.txt

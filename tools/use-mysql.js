@@ -1,4 +1,4 @@
-﻿const fs = require("fs");
+const fs = require("fs");
 const path = require("path");
 const file = path.join(__dirname, "..", "config.json");
 const want = (process.argv[2] || "").toLowerCase();
