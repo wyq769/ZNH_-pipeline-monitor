@@ -15,3 +15,7 @@ Thumbs.db
 config.json
 demo-dist/
 demo-dist.zip
+data/deploy_key
+data/deploy_key.pub
+data/known_hosts
+data/.git-credentials
