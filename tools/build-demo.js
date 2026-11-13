@@ -76,7 +76,9 @@ fs.writeFileSync(path.join(OUT, "assets", "demo-api.js"), shim, "utf8");
 function buildPage(file, outName, scriptName) {
   let s = fs.readFileSync(path.join(SRC, file), "utf8");
   s = s.replace("<html", '<html data-demo="1"');
-  const inject = '<script>window.__STATIC_DEMO__ = true;</script>\n  <script src="/assets/demo-api.js"></script>\n  <script src="/assets/' + scriptName + '?v=20261110"></script>';
+  const verMatch = s.match(new RegExp('<script src="/assets/' + scriptName + '(\\?v=[\\w-]+)?"'));
+  const ver = verMatch && verMatch[1] ? verMatch[1] : "";
+  const inject = '<script>window.__STATIC_DEMO__ = true;</script>\n  <script src="/assets/demo-api.js"></script>\n  <script src="/assets/' + scriptName + ver + '"></script>';
   s = s.replace(new RegExp('<script src="/assets/' + scriptName + '[^"]*"></script>'), inject);
   fs.writeFileSync(path.join(OUT, outName), s, "utf8");
   if (!s.includes("__STATIC_DEMO__")) throw new Error("注入失败: " + file);
