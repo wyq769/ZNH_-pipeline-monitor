@@ -50,6 +50,28 @@ function must(cond, msg) { if (!cond) throw new Error(msg); }
     must(r.ok && j.admin && j.admin.username === "123456", JSON.stringify(j));
     return "user=" + j.admin.username + " role=" + j.admin.role;
   });
+  await step("GET /api/settings", async () => {
+    const r = await fetch(BASE + "/api/settings", { headers: hd() }); const j = await r.json();
+    must(r.ok && j.settings, JSON.stringify(j));
+    return "uploadMs=" + (j.settings.uploadMs === undefined ? "(未设置)" : j.settings.uploadMs);
+  });
+  await step("PATCH /api/settings 校验非法值", async () => {
+    const r = await fetch(BASE + "/api/settings", {
+      method: "PATCH", headers: hd({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ uploadMs: 1234 })
+    });
+    must(r.status === 400, "应为 400，实际 " + r.status);
+    return "拒绝 1234 ms";
+  });
+  await step("PATCH /api/settings 写入 2000", async () => {
+    const r = await fetch(BASE + "/api/settings", {
+      method: "PATCH", headers: hd({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ uploadMs: 2000 })
+    });
+    const j = await r.json();
+    must(r.ok && j.ok, JSON.stringify(j));
+    return "uploadMs=2000";
+  });
   await step("GET /api/nodes → 30 条", async () => {
     const r = await fetch(BASE + "/api/nodes", { headers: hd() }); const j = await r.json();
     must(r.ok && Array.isArray(j.nodes), JSON.stringify(j).slice(0, 120));

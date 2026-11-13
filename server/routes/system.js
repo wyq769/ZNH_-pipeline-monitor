@@ -41,4 +41,33 @@ async function auditList(req, res, url) {
   H.sendJson(res, 200, { logs: rows });
 }
 
-module.exports = { health, publicConfig, auditList };
+const SETTING_KEYS = ["uploadMs"];
+const ALLOWED_UPLOAD_MS = [1000, 2000, 3000, 5000, 10000, 30000];
+
+async function settingsGet(req, res) {
+  var out = {};
+  for (var i = 0; i < SETTING_KEYS.length; i++) {
+    var k = SETTING_KEYS[i];
+    var row = await db.one("SELECT v FROM settings WHERE k = ?", [k]);
+    if (row && row.v != null) {
+      try { out[k] = JSON.parse(row.v); } catch (e) { out[k] = row.v; }
+    }
+  }
+  H.sendJson(res, 200, { settings: out });
+}
+
+async function settingsPatch(req, res) {
+  if (req.admin.role !== "admin") return H.sendJson(res, 403, { error: "没有权限" });
+  var body = await H.readBody(req);
+  if (!body || typeof body !== "object") return H.sendJson(res, 400, { error: "请求体无效" });
+  if (body.uploadMs !== undefined) {
+    var ms = Number(body.uploadMs);
+    if (ALLOWED_UPLOAD_MS.indexOf(ms) < 0) return H.sendJson(res, 400, { error: "上传频率取值不合法" });
+    var exists = await db.one("SELECT k FROM settings WHERE k = ?", ["uploadMs"]);
+    if (exists) await q("UPDATE settings SET v = ? WHERE k = ?", [JSON.stringify(ms), "uploadMs"]);
+    else await q("INSERT INTO settings (k, v) VALUES (?, ?)", ["uploadMs", JSON.stringify(ms)]);
+  }
+  H.sendJson(res, 200, { ok: true });
+}
+
+module.exports = { health, publicConfig, auditList, settingsGet, settingsPatch };

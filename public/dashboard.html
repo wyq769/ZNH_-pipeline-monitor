@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>监控面板 · 管道智能化检测系统</title>
-<link rel="stylesheet" href="/assets/dashboard.css?v=20261113g">
+<link rel="stylesheet" href="/assets/dashboard.css?v=20261113t">
 </head>
 <body>
 <div class="topline"></div>
@@ -45,6 +45,13 @@
           <path d="M9.5 5v14M14.5 5v14"/>
         </svg>
         <span id="pauseText">暂停</span>
+      </button>
+      <button class="btn" id="setBtn" title="设置">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>设置</span>
       </button>
     </div>
   </header>
@@ -264,6 +271,43 @@
     </div>
   </section>
 
+  <div class="modal" id="setModal" hidden>
+    <div class="modal-bg" data-close="1"></div>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+      <div class="sheet-head">
+        <div>
+          <h3 id="setTitle">系统设置</h3>
+          <p>当前仅开放「数据上传频率」，其余参数后续按需开放</p>
+        </div>
+        <button class="sheet-x" id="setClose" type="button" aria-label="关闭">×</button>
+      </div>
+      <div class="sheet-body">
+        <div class="opt">
+          <div class="opt-label">
+            <b>数据上传频率</b>
+            <i>节点向云端上报的间隔，同时决定面板刷新节奏</i>
+          </div>
+          <div class="seg" id="freqSeg" role="radiogroup" aria-label="数据上传频率">
+            <button type="button" data-ms="1000">1 s</button>
+            <button type="button" data-ms="2000">2 s</button>
+            <button type="button" data-ms="3000">3 s</button>
+            <button type="button" data-ms="5000">5 s</button>
+            <button type="button" data-ms="10000">10 s</button>
+            <button type="button" data-ms="30000">30 s</button>
+          </div>
+          <div class="opt-hint" id="freqHint">—</div>
+        </div>
+      </div>
+      <div class="sheet-foot">
+        <span class="sheet-note">仅影响本机预览的模拟上报节奏</span>
+        <div class="sheet-acts">
+          <button class="btn" id="setCancel" type="button">取消</button>
+          <button class="btn primary" id="setSave" type="button">保存设置</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="foot">
     <span>管道智能化检测系统 · PREVIEW</span>
     <span>数据为本地模拟 · 管网含主干与分支 · 相邻节点间距取自 1 / 3 / 5 km · 加热按本地阈值自动投切（低功率 25 W/m）</span>
@@ -272,6 +316,6 @@
 
 <div id="tip"></div>
 
-<script src="/assets/dashboard.js?v=20261113g"></script>
+<script src="/assets/dashboard.js?v=20261113t"></script>
 </body>
 </html>

@@ -57,6 +57,20 @@ const shim = `(function () {
     if (p === "/api/auth/dev-login") { setSession(ADMIN); return json({ ok: true, admin: ADMIN }); }
     if (p === "/api/auth/logout") { clearSession(); return json({ ok: true }); }
     if (p === "/api/auth/me") { var s = session(); return s ? json({ admin: s }) : json({ error: "未登录或会话已过期", code: "NO_SESSION" }, 401); }
+    if (p === "/api/settings") {
+      if (!session()) return json({ error: "未登录或会话已过期", code: "NO_SESSION" }, 401);
+      if (method === "GET") {
+        var u = null;
+        try { u = JSON.parse(localStorage.getItem("pipe-settings") || "null"); } catch (e) {}
+        return json({ settings: (u && u.uploadMs) ? { uploadMs: u.uploadMs } : {} });
+      }
+      if (method === "PATCH") {
+        var ok = [1000, 2000, 3000, 5000, 10000, 30000].indexOf(Number(body.uploadMs)) >= 0;
+        if (!ok) return json({ error: "上传频率取值不合法" }, 400);
+        localStorage.setItem("pipe-settings", JSON.stringify({ uploadMs: Number(body.uploadMs) }));
+        return json({ ok: true });
+      }
+    }
     if (p === "/api/nodes") {
       if (!session()) return json({ error: "未登录或会话已过期", code: "NO_SESSION" }, 401);
       return nodes().then(function (list) { return json({ nodes: list }); });

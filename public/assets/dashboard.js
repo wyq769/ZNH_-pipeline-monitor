@@ -9,6 +9,9 @@
   var selectedId = null;
   var totalLength = 0;
   var running = true, timer = null;
+var SETTINGS_KEY = "pipe-settings";
+var ALLOWED_MS = [1000, 2000, 3000, 5000, 10000, 30000];
+var settings = loadSettings();
   var envTemp = -4.6;
 
   var SVG_W = 940, SVG_H = 720;
@@ -622,7 +625,7 @@
       trs[k].addEventListener("click", function () { selectNode(this.getAttribute("data-id")); });
     }
     document.getElementById("tblHint").textContent =
-      "共 " + nodes.length + " 个节点 · 加热 " + heatN + " · 2s 刷新 · 流速阈值按管径 0.6 / 0.9 / 0.9";
+      "共 " + nodes.length + " 个节点 · 加热 " + heatN + " · " + secText(settings.uploadMs) + " 刷新 · 流速阈值按管径 0.6 / 0.9 / 0.9";
   }
 
   /* ---------- 平滑曲线 ---------- */
@@ -813,12 +816,105 @@
     if (ev) ev.textContent = envTemp.toFixed(1) + " ℃";
   }
 
+  /* ---------- 设置 ---------- */
+  function loadSettings() {
+    var s = { uploadMs: 2000 };
+    try {
+      var raw = window.localStorage.getItem(SETTINGS_KEY);
+      if (raw) {
+        var o = JSON.parse(raw);
+        if (o && ALLOWED_MS.indexOf(Number(o.uploadMs)) >= 0) s.uploadMs = Number(o.uploadMs);
+      }
+    } catch (e) { /* 忽略损坏的本地设置 */ }
+    return s;
+  }
+  function saveSettings() {
+    try { window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* 隐私模式忽略 */ }
+  }
+  function secText(ms) { return (ms % 1000 === 0 ? ms / 1000 : (ms / 1000).toFixed(1)) + "s"; }
+  function freqHintText(ms) {
+    var per = Math.round(60000 / ms);
+    var span = Math.round(40 * ms / 1000);
+    return "当前 " + secText(ms) + "：每分钟约 " + per + " 次上报 · 趋势曲线保留最近 40 个点（约 " + span + " 秒）· 演示为加速回放，1 次刷新 = 1 模拟分钟";
+  }
+  function markFreq(ms) {
+    var btns = document.querySelectorAll("#freqSeg button");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].classList.toggle("on", Number(btns[i].getAttribute("data-ms")) === ms);
+    }
+    var h = document.getElementById("freqHint");
+    if (h) h.textContent = freqHintText(ms);
+  }
+  function openSettings() {
+    markFreq(settings.uploadMs);
+    var m = document.getElementById("setModal");
+    m.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+  function closeSettings() {
+    var m = document.getElementById("setModal");
+    if (m) m.hidden = true;
+    document.body.style.overflow = "";
+  }
+  function initSettings() {
+    var seg = document.getElementById("freqSeg");
+    if (seg) {
+      seg.addEventListener("click", function (ev) {
+        var b = ev.target.closest("button[data-ms]");
+        if (!b) return;
+        markFreq(Number(b.getAttribute("data-ms")));
+      });
+    }
+    var open = document.getElementById("setBtn");
+    if (open) open.addEventListener("click", openSettings);
+    var close = document.getElementById("setClose");
+    if (close) close.addEventListener("click", closeSettings);
+    var cancel = document.getElementById("setCancel");
+    if (cancel) cancel.addEventListener("click", closeSettings);
+    var bg = document.querySelector("#setModal .modal-bg");
+    if (bg) bg.addEventListener("click", closeSettings);
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape") closeSettings();
+    });
+    var save = document.getElementById("setSave");
+    if (save) save.addEventListener("click", function () {
+      var on = document.querySelector("#freqSeg button.on");
+      settings.uploadMs = on ? Number(on.getAttribute("data-ms")) : settings.uploadMs;
+      saveSettings();
+      fetch("/api/settings", {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uploadMs: settings.uploadMs })
+      }).catch(function () { /* 无后端时静默失败 */ });
+      if (running) startTimer();
+      renderTable();
+      closeSettings();
+    });
+  }
+
+  function syncSettingsFromServer() {
+    fetch("/api/settings", { credentials: "same-origin" }).then(function (r) {
+      return r.ok ? r.json() : null;
+    }).then(function (d) {
+      if (!d || !d.settings) return;
+      var ms = Number(d.settings.uploadMs);
+      if (ALLOWED_MS.indexOf(ms) < 0 || ms === settings.uploadMs) return;
+      settings.uploadMs = ms;
+      saveSettings();
+      if (running) startTimer();
+      renderTable();
+    }).catch(function () { /* 离线或接口不可用时沿用本地设置 */ });
+  }
+
   function startTimer() {
     if (timer) clearInterval(timer);
-    timer = setInterval(tick, 2000);
+    timer = setInterval(tick, settings.uploadMs);
   }
 
   function init() {
+    initSettings();
+    syncSettingsFromServer();
     document.getElementById("regenBtn").addEventListener("click", function () {
       loadTopology().then(function (st) { if (st === "ok") renderAll(); });
     });

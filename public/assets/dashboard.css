@@ -325,3 +325,27 @@
 .dur-foot{margin-top:4px;font-size:9px;font-family:var(--mono);color:#5a6577;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hb-btns{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .heat-box.on .dur-top b{color:#ffcba6}
+
+/* ---------- 设置弹层 ---------- */
+.modal{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:24px}
+.modal[hidden]{display:none}
+.modal-bg{position:absolute;inset:0;background:rgba(6,9,14,.74);backdrop-filter:blur(3px)}
+.sheet{position:relative;width:min(560px,100%);background:linear-gradient(180deg,#12161e,#0d1117);border:1px solid rgba(255,255,255,.1);border-radius:14px;box-shadow:0 30px 80px rgba(0,0,0,.6);animation:sheetIn .18s ease-out}
+@keyframes sheetIn{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+.sheet-head{display:flex;justify-content:space-between;gap:16px;padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+.sheet-head h3{margin:0;font-size:15px;letter-spacing:.04em;color:#eaf2fb}
+.sheet-head p{margin:5px 0 0;font-size:11.5px;color:#7b8598;line-height:1.5}
+.sheet-x{width:26px;height:26px;flex:none;border-radius:7px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#9aa6b8;font-size:16px;line-height:1;cursor:pointer}
+.sheet-x:hover{color:#fff;border-color:rgba(255,255,255,.25)}
+.sheet-body{padding:16px 20px 4px}
+.opt{display:flex;flex-direction:column;gap:9px;margin-bottom:14px}
+.opt-label b{display:block;font-size:12.5px;color:#dfe7f2;letter-spacing:.03em}
+.opt-label i{display:block;margin-top:3px;font-size:11px;color:#78839a;font-style:normal}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg button{flex:1 1 0;min-width:64px;padding:8px 6px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:#a9b4c6;font-family:var(--mono,monospace);font-size:12px;cursor:pointer;transition:.15s}
+.seg button:hover{border-color:rgba(94,200,255,.45);color:#dff0ff}
+.seg button.on{border-color:rgba(94,200,255,.75);background:rgba(94,200,255,.14);color:#bfe7ff;box-shadow:0 0 14px rgba(94,200,255,.12)}
+.opt-hint{font-size:11px;color:#7f8a9d}
+.sheet-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px 18px}
+.sheet-note{font-size:10.5px;color:#69748a}
+.sheet-acts{display:flex;gap:8px}
