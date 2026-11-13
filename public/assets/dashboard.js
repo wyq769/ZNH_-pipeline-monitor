@@ -36,7 +36,14 @@
   /* 判定与电伴热参数（依据《加热硬件基础》）：
      环境 -6~27 ℃，正常流速区间按管径 D<250 0.6-0.9 / 250<D<500 0.9-1.4 / 500<D<1000 0.9-1.6 m/s，
      低于阈值即判异常并自动开启低功率加热（自限温电伴热带），恢复正常后关闭。 */
-  var T_ON = 0, T_OFF = 2, FLOW_HYST = 0.06, HEAT_W = 25, CLOUD_TTL = 20000;
+  /* 防冻自动加热策略：< 1 ℃ 持续 3 min 自动开启；> 3 ℃ 持续 3 min 自动关闭；
+     关闭后 30 min 内不再自动开启；单次自动加热 10 ~ 180 min；云端指令可指定 10 ~ 180 min。
+     演示口径：1 次刷新（2 s）= 1 模拟分钟。 */
+  var T_START = 1, T_STOP = 3, HOLD_ON_MIN = 3, HOLD_OFF_MIN = 3, REARM_MIN = 30;
+  var HEAT_MIN_MIN = 10, HEAT_MAX_MIN = 180, TICK_MIN = 1;
+  var CLOUD_MIN_LO = 10, CLOUD_MIN_HI = 180, CLOUD_MIN_DEF = 60;
+  var T_ON = 0, FLOW_HYST = 0.06, HEAT_W = 25;
+  var simMin = 0, cloudMin = CLOUD_MIN_DEF;
 
   function bandOf(dn) {
     if (dn < 250) return { lo: 0.6, hi: 0.9 };
@@ -52,26 +59,56 @@
   }
   function heatReasonOf(n) {
     var b = bandOf(n.dn), rs = [];
-    if (n.temp < T_ON) rs.push("温度 " + n.temp.toFixed(1) + " ℃ ＜ 0 ℃");
-    if (n.flow < b.lo) rs.push("流速 " + n.flow.toFixed(2) + " ＜ " + b.lo.toFixed(2) + " m/s");
+    if (n.temp < T_START) rs.push("温度 " + n.temp.toFixed(1) + " ℃ ＜ " + T_START + " ℃ 持续 " + n.coldMin + " min");
+    if (n.flow < b.lo) rs.push("流速 " + n.flow.toFixed(2) + " ＜ " + b.lo.toFixed(2) + " m/s 持续 " + n.lowFlowMin + " min");
     return rs.join(" · ");
   }
-  function applyHeat(n) {
-    var b = bandOf(n.dn);
+  function heatOn(n, src, reason, minutes) {
+    n.heat = true; n.heatSrc = src; n.heatSince = Date.now();
+    n.heatStartMin = simMin; n.heatReason = reason;
+    n.heatLimitMin = minutes || 0;
+    n.heatUntilMin = n.heatLimitMin ? simMin + n.heatLimitMin : 0;
+    n.warmMin = 0;
+  }
+  function heatOff(n, reason) {
+    if (n.heatSrc === "local") n.lastOffMin = simMin;
+    n.heat = false; n.heatSince = 0; n.heatReason = reason || "";
+    n.heatUntilMin = 0; n.heatLimitMin = 0;
+    n.coldMin = 0; n.warmMin = 0; n.lowFlowMin = 0; n.okFlowMin = 0;
+  }
+  /* 每个 tick 推进一次：云端指令优先，其次本地防冻策略 */
+  function stepHeat(n) {
+    var fb = bandOf(n.dn);
+    if (n.temp < T_START) n.coldMin += TICK_MIN; else n.coldMin = 0;
+    if (n.temp > T_STOP) n.warmMin += TICK_MIN; else n.warmMin = 0;
+    if (n.flow < fb.lo) n.lowFlowMin += TICK_MIN; else n.lowFlowMin = 0;
+    if (n.flow >= fb.lo + FLOW_HYST) n.okFlowMin += TICK_MIN; else n.okFlowMin = 0;
+
     if (n.cloudCmd !== null && n.cloudCmd !== undefined) {
-      if (n.heat !== !!n.cloudCmd) {
-        n.heat = !!n.cloudCmd;
-        n.heatSince = n.heat ? Date.now() : 0;
-        n.heatReason = n.heat ? "云端指令 · 开启低功率加热" : "云端指令 · 关闭加热";
-      }
       n.heatSrc = "cloud";
+      if (n.cloudCmd === false) {
+        if (n.heat) heatOff(n, "云端指令 · 关闭加热");
+        return;
+      }
+      if (!n.heat) heatOn(n, "cloud", "云端指令 · 开启低功率加热", n.heatLimitMin || cloudMin);
+      if (simMin >= n.heatUntilMin) {
+        n.cloudCmd = null; heatOff(n, "云端时长 " + n.heatLimitMin + " min 到期 · 自动停止");
+        n.heatSrc = "local"; n.lastOffMin = simMin;
+      }
       return;
     }
+
     n.heatSrc = "local";
-    var need = n.temp < T_ON || n.flow < b.lo;
-    var done = n.temp >= T_OFF && n.flow >= b.lo + FLOW_HYST;
-    if (!n.heat && need) { n.heat = true; n.heatSince = Date.now(); n.heatReason = heatReasonOf(n); }
-    else if (n.heat && done) { n.heat = false; n.heatSince = 0; n.heatReason = ""; }
+    if (n.heat) {
+      var elapsed = simMin - n.heatStartMin;
+      if (elapsed >= HEAT_MAX_MIN) { heatOff(n, "达到最长加热 " + HEAT_MAX_MIN + " min · 自动停止"); return; }
+      if (elapsed >= HEAT_MIN_MIN && n.warmMin >= HOLD_OFF_MIN && n.okFlowMin >= HOLD_OFF_MIN) {
+        heatOff(n, "温度 ＞ " + T_STOP + " ℃ 且流速恢复 · 持续 " + HOLD_OFF_MIN + " min · 自动停止");
+        return;
+      }
+    } else if ((n.coldMin >= HOLD_ON_MIN || n.lowFlowMin >= HOLD_ON_MIN) && (simMin - n.lastOffMin) >= REARM_MIN) {
+      heatOn(n, "local", heatReasonOf(n), HEAT_MAX_MIN);
+    }
   }
   function fmtTime(ts) {
     var d = new Date(ts);
@@ -101,7 +138,7 @@
   /* ---------- 节点数据 ---------- */
   function makeNodeData(id, x, y, dn) {
     dn = dn || 200;
-    var b = bandOf(dn), abn = Math.random() < 0.07, temp, flow;
+    var b = bandOf(dn), abn = Math.random() < 0.05, temp, flow;
     if (abn) {
       if (Math.random() < 0.6) {
         temp = -(Math.random() * 6 + 0.4);
@@ -117,10 +154,12 @@
     var o = {
       id: id, x: x, y: y, dn: dn,
       temp: r2(temp), flow: r2(flow), time: Date.now(), lx: 0, ly: 0,
-      heat: false, heatSrc: "local", heatSince: 0, heatReason: "", cloudCmd: null, cmdUntil: 0
+      heat: false, heatSrc: "local", heatSince: 0, heatReason: "", cloudCmd: null,
+      heatStartMin: 0, heatUntilMin: 0, heatLimitMin: 0, coldMin: 0, warmMin: 0,
+      lowFlowMin: 0, okFlowMin: 0, lastOffMin: -REARM_MIN
     };
     o.status = computeStatus(o);
-    applyHeat(o);
+    stepHeat(o);
     return o;
   }
 
@@ -300,11 +339,9 @@
 
   /* ---------- 模拟数据刷新 ---------- */
   function tick() {
+    simMin += TICK_MIN;
     for (var i = 0; i < nodes.length; i++) {
       var n = nodes[i], b = bandOf(n.dn);
-      if (n.cloudCmd !== null && n.cmdUntil && Date.now() > n.cmdUntil) {
-        n.cloudCmd = null; n.cmdUntil = 0; n.heatSrc = "local";
-      }
       var low = n.temp < T_ON || n.flow < b.lo;
       if (low) {
         if (n.temp < T_ON) n.temp = r2(clamp(n.temp + (Math.random() - 0.58) * 0.9, -9, -0.05));
@@ -318,13 +355,13 @@
         n.temp = r2(clamp(n.temp + (target - n.temp) * 0.06 + (Math.random() - 0.5) * 0.55, 2.4, 30));
         var fMid = (b.lo + b.hi) / 2;
         n.flow = r2(clamp(n.flow + (fMid - n.flow) * 0.09 + (Math.random() - 0.5) * 0.08, b.lo + 0.02, b.hi - 0.02));
-        if (Math.random() < 0.022) {
+        if (Math.random() < 0.012) {
           if (Math.random() < 0.55) n.temp = r2(-(Math.random() * 5 + 0.3));
           else n.flow = r2(b.lo * (0.15 + Math.random() * 0.55));
         }
       }
       n.status = computeStatus(n);
-      applyHeat(n);
+      stepHeat(n);
       n.time = Date.now();
       history[n.id].push({ t: n.time, temp: n.temp, flow: n.flow, status: n.status, heat: n.heat });
       if (history[n.id].length > 40) history[n.id].shift();
@@ -513,9 +550,30 @@
     document.getElementById("dHeatPower").textContent = n.heat ? "低功率 " + HEAT_W + " W/m" : "0 W/m";
     document.getElementById("dHeatSrc").textContent = (n.cloudCmd !== null && n.cloudCmd !== undefined)
       ? "云端指令" : (n.heat ? "本地自动" : "—");
-    document.getElementById("dHeatDur").textContent = n.heat ? mmss(Date.now() - n.heatSince) : "—";
-    document.getElementById("dCmdNote").textContent = n.cloudCmd === null
-      ? "本地阈值自动投切" : ("云端指令 · " + (n.cloudCmd ? "开启中" : "关闭中") + " · 20s 回执");
+    document.getElementById("dHeatDur").textContent = n.heat
+      ? (Math.max(0, simMin - n.heatStartMin) + " / " + (n.heatLimitMin || HEAT_MAX_MIN) + " min") : "—";
+    var dNote = document.getElementById("dCmdNote");
+    if (n.cloudCmd === null) dNote.textContent = "本地自动 · ＜" + T_START + " ℃ 或流速偏低 持续 " + HOLD_ON_MIN + " min 开启 · 间隔 " + REARM_MIN + " min";
+    else if (n.cloudCmd) dNote.textContent = "云端开启 · 到期自动停止 · 本地阈值暂停";
+    else dNote.textContent = "云端关闭 · 本地阈值暂停 · 恢复本地后接管";
+    var dBar = document.getElementById("cmdBar");
+    if (dBar) {
+      var ratio = (n.cloudCmd === true && n.heatLimitMin)
+        ? Math.max(0, (n.heatUntilMin - simMin) / n.heatLimitMin) : 0;
+      dBar.style.width = (ratio * 100).toFixed(1) + "%";
+    }
+    var dOut = document.getElementById("cmdMinOut");
+    if (dOut) dOut.textContent = (n.cloudCmd === true && n.heatLimitMin ? n.heatLimitMin : cloudMin) + " min";
+    var dRem = document.getElementById("cmdRemain");
+    if (dRem) {
+      if (n.cloudCmd === true && n.heatLimitMin) {
+        dRem.textContent = "递减中 · 剩余 " + Math.max(0, n.heatUntilMin - simMin) + " / " + n.heatLimitMin + " min";
+      } else if (n.cloudCmd === false) {
+        dRem.textContent = "云端已关闭 · 恢复本地阈值控制";
+      } else {
+        dRem.textContent = "可调范围 " + CLOUD_MIN_LO + " ~ " + CLOUD_MIN_HI + " min";
+      }
+    }
     var cmds = document.querySelectorAll("#heatBox .mini");
     for (var c = 0; c < cmds.length; c++) {
       var kc = cmds[c].getAttribute("data-cmd");
@@ -779,15 +837,31 @@
         document.getElementById("liveText").textContent = "已暂停";
       }
     });
+    var rng = document.getElementById("cmdMin");
+    if (rng) {
+      cloudMin = parseInt(rng.value, 10) || CLOUD_MIN_DEF;
+      rng.addEventListener("input", function () {
+        cloudMin = parseInt(this.value, 10) || CLOUD_MIN_DEF;
+        var o = document.getElementById("cmdMinOut");
+        if (o && !(nodeById(selectedId) || {}).heat) o.textContent = cloudMin + " min";
+        var r = document.getElementById("cmdRemain");
+        if (r) r.textContent = "已选 " + cloudMin + " min · 范围 " + CLOUD_MIN_LO + " ~ " + CLOUD_MIN_HI;
+      });
+    }
     var cmds = document.querySelectorAll("#heatBox .mini");
     for (var i = 0; i < cmds.length; i++) {
       cmds[i].addEventListener("click", function () {
         var n = nodeById(selectedId);
         if (!n) return;
         var c = this.getAttribute("data-cmd");
-        if (c === "auto") { n.cloudCmd = null; n.cmdUntil = 0; }
-        else { n.cloudCmd = (c === "on"); n.cmdUntil = Date.now() + CLOUD_TTL; }
-        applyHeat(n);
+        if (c === "auto") {
+          n.cloudCmd = null; n.heatUntilMin = 0; n.heatLimitMin = 0;
+        } else {
+          n.cloudCmd = (c === "on");
+          n.heatLimitMin = (c === "on") ? cloudMin : 0;
+          n.heatUntilMin = (c === "on") ? simMin + cloudMin : 0;
+        }
+        stepHeat(n);
         renderAll();
       });
     }

@@ -107,7 +107,8 @@ function serveStatic(req, res, rootDir, urlPath) {
   if (stat.isDirectory()) return false;
   const ext = path.extname(target).toLowerCase();
   const type = MIME[ext] || "application/octet-stream";
-  const cache = ext === ".html" ? "no-cache" : "public, max-age=300";
+  const NO_CACHE_EXT = [".html", ".js", ".css", ".json"];
+  const cache = NO_CACHE_EXT.indexOf(ext) >= 0 ? "no-cache, must-revalidate" : "public, max-age=300";
   const body = fs.readFileSync(target);
   res.writeHead(200, {
     "Content-Type": type,

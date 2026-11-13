@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>监控面板 · 管道智能化检测系统</title>
-<link rel="stylesheet" href="/assets/dashboard.css?v=20261110">
+<link rel="stylesheet" href="/assets/dashboard.css?v=20261113g">
 </head>
 <body>
 <div class="topline"></div>
@@ -53,7 +53,7 @@
 
   <div class="envline">
     <span><em>伴热</em><b>自限温电伴热带</b><i>管道凹槽嵌入 + 外覆保温层 · 低功率 25 W/m</i></span>
-    <span><em>判定</em><b>温度 0 ℃ / 流速低于阈值</b><i>判异常并自动投加热，恢复后自动停止</i></span>
+    <span><em>判定</em><b>温度 0 ℃ / 流速低于阈值</b><i>判异常；防冻 ＜1 ℃ 或流速偏低 持续 3 min 开 · 恢复 3 min 关 · 间隔 30 min · 单次 10~180 min</i></span>
   </div>
 
   <section class="stats">
@@ -197,16 +197,24 @@
           <span class="hb-state" id="dHeatState"><i></i>待机</span>
         </div>
         <div class="hb-grid">
-          <div><span>触发</span><b id="dHeatReason">—</b></div>
+          <div class="wide"><span>触发</span><b id="dHeatReason">—</b></div>
           <div><span>功率</span><b id="dHeatPower">0 W/m</b></div>
           <div><span>来源</span><b id="dHeatSrc">本地自动</b></div>
           <div><span>持续</span><b id="dHeatDur">—</b></div>
         </div>
         <div class="hb-cmd">
-          <span class="hb-cmd-label">云端指令</span>
-          <button class="mini" data-cmd="on">开启加热</button>
-          <button class="mini" data-cmd="off">关闭加热</button>
-          <button class="mini" data-cmd="auto">恢复本地</button>
+          <div class="hb-dur">
+            <div class="dur-top"><span>云端时长</span><b id="cmdMinOut">60 min</b></div>
+            <input class="dur-range" id="cmdMin" type="range" min="10" max="180" step="5" value="60" aria-label="云端加热时长">
+            <div class="pbar"><i id="cmdBar"></i></div>
+            <div class="dur-foot" id="cmdRemain">范围 10 ~ 180 min</div>
+          </div>
+          <div class="hb-btns">
+            <span class="hb-cmd-label">云端指令</span>
+            <button class="mini" data-cmd="on">开启加热</button>
+            <button class="mini" data-cmd="off">关闭加热</button>
+            <button class="mini" data-cmd="auto">恢复本地</button>
+          </div>
           <span class="hb-cmd-note" id="dCmdNote">本地阈值自动投切</span>
         </div>
       </div>
@@ -264,6 +272,6 @@
 
 <div id="tip"></div>
 
-<script src="/assets/dashboard.js?v=20261110"></script>
+<script src="/assets/dashboard.js?v=20261113g"></script>
 </body>
 </html>
