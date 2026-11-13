@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>监控面板 · 管道智能化检测系统</title>
-<link rel="stylesheet" href="/assets/dashboard.css?v=20261113t">
+<link rel="stylesheet" href="/assets/dashboard.css?v=20261113x">
 </head>
 <body>
 <div class="topline"></div>
@@ -60,7 +60,7 @@
 
   <div class="envline">
     <span><em>伴热</em><b>自限温电伴热带</b><i>管道凹槽嵌入 + 外覆保温层 · 低功率 25 W/m</i></span>
-    <span><em>判定</em><b>温度 0 ℃ / 流速低于阈值</b><i>判异常；防冻 ＜1 ℃ 或流速偏低 持续 3 min 开 · 恢复 3 min 关 · 间隔 30 min · 单次 10~180 min</i></span>
+    <span><em>判定</em><b>温度 1 ℃ / 流速低于阈值</b><i>判异常；防冻 ＜1 ℃ 或流速偏低 持续 3 min 开 · 恢复 3 min 关 · 间隔 30 min · 单次 10~180 min</i></span>
   </div>
 
   <section class="stats">
@@ -98,7 +98,7 @@
       </div>
       <div class="s-value" id="stAbnormal" style="color:#ffa3b4">0</div>
       <canvas class="spark" id="spAbn"></canvas>
-      <div class="s-foot"><span>判定</span><b>温度&lt;0 · 流速&lt;按管径</b></div>
+      <div class="s-foot"><span>判定</span><b>温度&lt;1 · 流速&lt;按管径</b></div>
     </div>
 
     <div class="stat" style="--c:var(--warm)">
@@ -186,7 +186,7 @@
             <span class="m-val" id="dTemp">—<i>°C</i></span>
           </div>
           <div class="meter"><span class="fill" id="dTempBar" style="width:0;background:linear-gradient(90deg,rgba(255,180,84,.55),var(--warm))"></span><span class="tick" style="left:22.2%"></span></div>
-          <div class="m-foot"><span id="dTempThr">阈值 0 °C</span><span id="dTempState">—</span></div>
+          <div class="m-foot"><span id="dTempThr">阈值 1 °C</span><span id="dTempState">—</span></div>
         </div>
         <div class="metric">
           <div class="m-top">
@@ -230,7 +230,7 @@
         <div class="chart-block">
           <div class="chart-top">
             <span class="chart-name">温度趋势<b id="tTempNow">—</b></span>
-            <span class="chart-th"><b id="tTempTh">阈值 0 °C</b> · 近 60s</span>
+            <span class="chart-th"><b id="tTempTh">阈值 1 °C</b> · 近 60s</span>
           </div>
           <canvas class="chart" id="chartTemp"></canvas>
         </div>
@@ -267,6 +267,44 @@
           </tr>
         </thead>
         <tbody id="tblBody"></tbody>
+      </table>
+    </div>
+  <section class="panel">
+    <div class="p-head">
+      <div class="p-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <path d="M3.5 17.5 9 11l4 4 7.5-8.5"/><path d="M15.5 6.5h5v5"/>
+        </svg>温度 / 流速变化速率
+      </div>
+      <div class="p-meta" id="rateHint">—</div>
+    </div>
+    <div class="rate-grid">
+      <div class="rcard"><span>全网平均温度速率</span><b id="rTempRate">—</b><i>℃ / min</i></div>
+      <div class="rcard"><span>全网平均流速速率</span><b id="rFlowRate">—</b><i>(m/s) / min</i></div>
+      <div class="rcard heat"><span>加热节点平均回温</span><b id="rWarm">—</b><i>℃ / min</i></div>
+      <div class="rcard"><span>升温最快 / 降温最快</span><b id="rUp">—</b><b id="rDown" class="dim">—</b><i>节点 · ℃ / min</i></div>
+    </div>
+    <div class="rate-charts">
+      <div class="chart-block">
+        <div class="chart-top"><span class="chart-name">平均温度变化率</span><span class="chart-th">近 40 次采样 · ℃/min</span></div>
+        <canvas class="chart" id="chartTempRate"></canvas>
+      </div>
+      <div class="chart-block">
+        <div class="chart-top"><span class="chart-name">平均流速变化率</span><span class="chart-th">近 40 次采样 · (m/s)/min</span></div>
+        <canvas class="chart" id="chartFlowRate"></canvas>
+      </div>
+    </div>
+    <div class="tbl-note">
+      <span><em>算法</em>速率 =（当前值 − 5 次采样前的值）÷ 5，按模拟分钟计；负值表示下降</span>
+      <span><em>态势</em>回温中 = 加热中且为正速率；其余按 ±0.05 ℃/min 判升降温</span>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>节点</th><th class="num">温度 °C</th><th class="num">Δ温度</th><th class="num">温度速率 ℃/min</th>
+          <th class="num">流速 m/s</th><th class="num">Δ流速</th><th class="num">流速速率 (m/s)/min</th><th>态势</th>
+        </tr></thead>
+        <tbody id="rateBody"></tbody>
       </table>
     </div>
   </section>
@@ -316,6 +354,6 @@
 
 <div id="tip"></div>
 
-<script src="/assets/dashboard.js?v=20261113t"></script>
+<script src="/assets/dashboard.js?v=20261113x"></script>
 </body>
 </html>

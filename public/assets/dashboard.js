@@ -45,7 +45,7 @@ var settings = loadSettings();
   var T_START = 1, T_STOP = 3, HOLD_ON_MIN = 3, HOLD_OFF_MIN = 3, REARM_MIN = 30;
   var HEAT_MIN_MIN = 10, HEAT_MAX_MIN = 180, TICK_MIN = 1;
   var CLOUD_MIN_LO = 10, CLOUD_MIN_HI = 180, CLOUD_MIN_DEF = 60;
-  var T_ON = 0, FLOW_HYST = 0.06, HEAT_W = 25;
+  var T_ON = 1, FLOW_HYST = 0.06, HEAT_W = 25;
   var simMin = 0, cloudMin = CLOUD_MIN_DEF;
 
   function bandOf(dn) {
@@ -347,12 +347,9 @@ var settings = loadSettings();
       var n = nodes[i], b = bandOf(n.dn);
       var low = n.temp < T_ON || n.flow < b.lo;
       if (low) {
-        if (n.temp < T_ON) n.temp = r2(clamp(n.temp + (Math.random() - 0.58) * 0.9, -9, -0.05));
+        if (n.temp < T_ON && !n.heat) n.temp = r2(clamp(n.temp + (Math.random() - 0.58) * 0.9, -9, T_ON - 0.05));
         if (n.flow < b.lo) n.flow = r2(clamp(n.flow + (Math.random() - 0.58) * 0.07, 0.02, b.lo - 0.01));
-        if (n.heat) {
-          n.temp = r2(clamp(n.temp + 0.6 + Math.random() * 0.6, -9, 14));
-          n.flow = r2(clamp(n.flow + 0.05 + Math.random() * 0.07, 0.02, b.hi));
-        }
+
       } else {
         var target = 7 + Math.random() * 5;
         n.temp = r2(clamp(n.temp + (target - n.temp) * 0.06 + (Math.random() - 0.5) * 0.55, 2.4, 30));
@@ -363,6 +360,10 @@ var settings = loadSettings();
           else n.flow = r2(b.lo * (0.15 + Math.random() * 0.55));
         }
       }
+      if (n.heat) {
+        n.temp = r2(clamp(n.temp + 0.45 + Math.random() * 0.5, -9, 18));
+        n.flow = r2(clamp(n.flow + 0.03 + Math.random() * 0.05, 0.02, b.hi + 0.05));
+      }
       n.status = computeStatus(n);
       stepHeat(n);
       n.time = Date.now();
@@ -370,6 +371,15 @@ var settings = loadSettings();
       if (history[n.id].length > 40) history[n.id].shift();
     }
     envTemp = r2(clamp(envTemp + (Math.random() - 0.5) * 0.35, -6, 4));
+    var rsT = 0, rsF = 0, rsN = 0;
+    for (var ri = 0; ri < nodes.length; ri++) {
+      var rr = rateOf(nodes[ri]);
+      if (rr) { rsT += rr.tRate; rsF += rr.fRate; rsN++; }
+    }
+    if (rsN) {
+      rateAgg.push({ t: Math.round(rsT / rsN * 100) / 100, f: Math.round(rsF / rsN * 1000) / 1000 });
+      if (rateAgg.length > 40) rateAgg.shift();
+    }
     pushAgg();
     renderAll();
   }
@@ -765,6 +775,98 @@ var settings = loadSettings();
     ctx.beginPath(); ctx.moveTo(padL + 0.5, padT); ctx.lineTo(padL + 0.5, padT + plotH); ctx.stroke();
   }
 
+  /* ---------- 变化速率分析 ---------- */
+  var RATE_WIN = 5;
+  var rateAgg = [];
+
+  function setTxt(id, v) {
+    var e = document.getElementById(id);
+    if (e) e.textContent = v;
+  }
+
+  function rateOf(n) {
+    var h = history[n.id];
+    if (!h || h.length < 3) return null;
+    var k = Math.min(RATE_WIN, h.length - 1);
+    var a = h[h.length - 1 - k], b = h[h.length - 1];
+    var dT = b.temp - a.temp, dF = b.flow - a.flow;
+    return {
+      k: k, dT: dT, dF: dF,
+      tRate: Math.round(dT / k * 100) / 100,
+      fRate: Math.round(dF / k * 1000) / 1000
+    };
+  }
+
+  function rateState(n, rt) {
+    if (n.heat && rt.tRate > 0.05) return { k: "warm", t: "回温中" };
+    if (rt.tRate > 0.05) return { k: "up", t: "升温" };
+    if (rt.tRate < -0.05) return { k: "down", t: "降温" };
+    return { k: "flat", t: "平稳" };
+  }
+
+  function sign(v, dec) {
+    return (v > 0 ? "+" : "") + v.toFixed(dec);
+  }
+
+  function dirCls(v) { return v > 0 ? "up" : v < 0 ? "down" : ""; }
+
+  function renderRates() {
+    var body = document.getElementById("rateBody");
+    if (!body) return;
+    var rows = [], i, sumT = 0, sumF = 0, hotSum = 0, hotN = 0;
+    var upId = "—", upV = 0, downId = "—", downV = 0;
+    for (i = 0; i < nodes.length; i++) {
+      var rt = rateOf(nodes[i]);
+      if (rt) rows.push({ n: nodes[i], rt: rt });
+    }
+    rows.sort(function (a, b) { return Math.abs(b.rt.tRate) - Math.abs(a.rt.tRate); });
+    var html2 = "";
+    for (i = 0; i < rows.length; i++) {
+      var o = rows[i], n = o.n, r = o.rt, st = rateState(n, r);
+      sumT += r.tRate; sumF += r.fRate;
+      if (n.heat && simMin - (n.heatStartMin || 0) >= RATE_WIN) { hotSum += r.tRate; hotN++; }
+      if (r.tRate > upV) { upV = r.tRate; upId = n.id; }
+      if (r.tRate < downV) { downV = r.tRate; downId = n.id; }
+      html2 += '<tr class="' + (n.status === "abnormal" ? "abn " : "") + (n.heat ? "hot " : "") + (n.id === selectedId ? "sel" : "") + '" data-id="' + n.id + '">' +
+        '<td class="mono strong">' + n.id + '</td>' +
+        '<td class="num mono">' + n.temp.toFixed(1) + '</td>' +
+        '<td class="num mono ' + dirCls(r.dT) + '">' + sign(r.dT, 2) + '</td>' +
+        '<td class="num mono ' + dirCls(r.tRate) + '"><b>' + sign(r.tRate, 2) + '</b></td>' +
+        '<td class="num mono">' + n.flow.toFixed(2) + '</td>' +
+        '<td class="num mono ' + dirCls(r.dF) + '">' + sign(r.dF, 3) + '</td>' +
+        '<td class="num mono ' + dirCls(r.fRate) + '">' + sign(r.fRate, 3) + '</td>' +
+        '<td><span class="rt ' + st.k + '">' + st.t + '</span></td>' +
+        '</tr>';
+    }
+    body.innerHTML = html2;
+    var trs = body.querySelectorAll("tr");
+    for (i = 0; i < trs.length; i++) {
+      trs[i].addEventListener("click", function () { selectNode(this.getAttribute("data-id")); });
+    }
+    var cnt = rows.length || 1;
+    setTxt("rTempRate", sign(sumT / cnt, 2));
+    setTxt("rFlowRate", sign(sumF / cnt, 3));
+    setTxt("rWarm", hotN ? sign(hotSum / hotN, 2) : "—");
+    var rw = document.getElementById("rWarm");
+    if (rw) rw.className = hotN ? "" : "dim";
+    setTxt("rUp", upId === "—" ? "—" : upId + "  " + sign(upV, 2));
+    setTxt("rDown", downId === "—" ? "—" : downId + "  " + sign(downV, 2));
+    setTxt("rateHint", "最近 " + RATE_WIN + " 次采样（≈" + RATE_WIN + " 模拟分钟）· 温度 ℃/min · 流速 (m/s)/min · 共 " + rows.length + " 个节点");
+    if (rateAgg.length > 1) {
+      var mt = 0.2, mf = 0.005;
+      for (i = 0; i < rateAgg.length; i++) {
+        mt = Math.max(mt, Math.abs(rateAgg[i].t));
+        mf = Math.max(mf, Math.abs(rateAgg[i].f));
+      }
+      mt = Math.ceil(mt * 10) / 10;
+      mf = Math.ceil(mf * 1000) / 1000;
+      drawChart("chartTempRate", rateAgg.map(function (x) { return x.t; }),
+        { color: pal().temp, min: -mt, max: mt, dec: 2, div: 2 });
+      drawChart("chartFlowRate", rateAgg.map(function (x) { return x.f; }),
+        { color: pal().flow, min: -mf, max: mf, dec: 3, div: 2 });
+    }
+  }
+
   /* ---------- 悬浮提示 ---------- */
   function initTip() {
     var svg = document.getElementById("net");
@@ -809,6 +911,7 @@ var settings = loadSettings();
     renderNetwork();
     renderDetail();
     renderTable();
+    renderRates();
     document.getElementById("pipeHint").textContent =
       edges.length + " 段 · " + (totalLength / 1000).toFixed(0) + " km · " + groups.length + " 分支";
     document.getElementById("liveTs").textContent = fmtTime(Date.now());

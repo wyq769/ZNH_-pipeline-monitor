@@ -349,3 +349,25 @@
 .sheet-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 20px 18px}
 .sheet-note{font-size:10.5px;color:#69748a}
 .sheet-acts{display:flex;gap:8px}
+
+  /* ---------- 变化速率分析 ---------- */
+  .rate-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:2px 0 14px}
+  .rcard{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:3px;min-width:0}
+  .rcard span{font-size:11px;color:var(--dim);letter-spacing:.04em}
+  .rcard b{font-family:var(--mono);font-size:20px;font-weight:600;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rcard b.dim{font-size:13px;color:var(--dim);font-weight:500}
+  .rcard i{font-style:normal;font-size:10.5px;color:var(--mute);letter-spacing:.04em}
+  .rcard.heat b{color:var(--heat)}
+  .rate-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+  .mono.up{color:#3ddc97}
+  .mono.down{color:#ff5c7a}
+  .rt{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;border:1px solid var(--line-2);color:var(--dim);white-space:nowrap}
+  .rt.up{color:#3ddc97;border-color:rgba(61,220,151,.35);background:rgba(61,220,151,.08)}
+  .rt.down{color:#ff5c7a;border-color:rgba(255,92,122,.35);background:rgba(255,92,122,.08)}
+  .rt.warm{color:var(--heat);border-color:rgba(255,138,61,.4);background:rgba(255,138,61,.1)}
+  .rt.flat{color:var(--mute)}
+  @media (max-width:1240px){.rate-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:760px){.rate-charts{grid-template-columns:1fr}}
+
+  .rate-charts .chart-block{background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:12px;padding:10px 12px 8px}
+  .rate-charts .chart{min-height:104px}
